@@ -40,7 +40,7 @@ def visualize(filename, data):
         global x, y
         x += np.pi / 15.
         y += np.pi / 20.
-        im.set_array(f(x, y))
+        # im.set_array(f(x, y))
         return im,
 
     ani = animation.FuncAnimation(fig, updatefig, interval=50, blit=True)
@@ -49,6 +49,7 @@ def visualize(filename, data):
 
     movie_fname = "%s.mp4" % os.path.splitext(filename)[0]
     with writer.saving(fig, movie_fname, 100):
+        pass
 
 
 def main():

@@ -1,10 +1,10 @@
-# CS 230 Project Proposal
-#### Spring 2018
+# Project Proposal
+#### CS 230 (Deep Learning) Spring 2018
 
-#### Project Title: Brain Tumor Image Segmentation via Capsule Networks
-####  Project Category: Computer Vision
-#### Group Member 1: Cam Backes (cbackes@stanford.edu)
-#### Group Member 2: Jon Deaton (jdeaton@stanford.edu)
+##### Project Title: Brain Tumor Image Segmentation via Capsule Networks
+#####  Project Category: Computer Vision
+##### Group Member 1: Cam Backes (cbackes@stanford.edu)
+##### Group Member 2: Jon Deaton (jdeaton@stanford.edu)
 
 ### Project Description
 Noninvasive methods of brain imaging, most commonly Magnetic Resonance Imaging (MRI), are routinely

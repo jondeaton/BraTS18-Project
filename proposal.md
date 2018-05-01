@@ -38,7 +38,7 @@ the dataset and explore the use of CNNs and other models for image segmentation.
 few of these papers in the references section below.
 
 ### Result Evaluation
-We will evaluate model performance using the metrics defined in Mense et al., which are used to 
+We will evaluate model performance using the metrics defined in [Mense et al.][1], which are used to 
 evaluate models submitted to the MICCAI BraTS challenge, an annual competition in which 
 researchers’ algorithms are judged based on tumor segmentation performance. For each scan, the 
 Dice, sensitivity, and specificity metrics are computed based on discrepancies between predicted 
@@ -53,8 +53,12 @@ well descriptive statistics that further detail our model’s performance.
 
 ### References
 Dataset overview:
-The Multimodal Brain Tumor Image Segmentation Benchmark (BRATS)
+[The Multimodal Brain Tumor Image Segmentation Benchmark (BRATS)][1]
 
 Successful deep learning approaches:
-Automatic Brain Tumor Segmentation using Cascaded Anisotropic Convolutional Neural Networks
-Brain Tumor Segmentation with Deep Neural Networks
+[Automatic Brain Tumor Segmentation using Cascaded Anisotropic Convolutional Neural Networks][2]
+[Brain Tumor Segmentation with Deep Neural Networks][3]
+
+[1]:https://www.ncbi.nlm.nih.gov/pubmed/25494501
+[2]:https://arxiv.org/abs/1709.00382
+[3]:https://arxiv.org/pdf/1505.03540.pdf

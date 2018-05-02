@@ -11,6 +11,7 @@ setup(name='BraTS',
           "tensorflow",
           "numpy",
           "matplotlib",
+          "pandas",
           "nibabel"        # Neuro-Imaging file format library
       ],
       zip_safe=False)

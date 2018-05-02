@@ -120,18 +120,50 @@ def main():
     logger.info("Num epochs: %s" % num_epochs)
     logger.info("Mini-batch size: %s" % mini_batch_size)
 
-    logger.info("Loading SIGNS data-set...")
+    logger.info("Loading BraTS data-set...")
 
-    BraTS_data = BraTS.load_dataset()
 
-    virus_data = viral_kmers.load_dataset(virus_file=virus_file, bacteria_file=bacteria_file)
+    # Desired functionality
+    BraTS.set_root("/Users/jonpdeaton/Datasets/BraTS")
+    brats = BraTS.DataSet(year=2018)
 
-    train_data = virus_data.train.kmers
-    train_labels = virus_data.train.labels
+    images = brats.train.mris # raw numpy things
+    segs = brats.train.seg # raw numpy things
 
-    eval_data = virus_data.eval.kmers
-    eval_labels = virus_data.eval.labels
-    logger.info("Loaded data set.")
+    # The most important one: tf.data.Dataset
+    dataset = brats.train.dataset
+
+    brats.train.patients["some_ID"]
+
+    for patient_id in brats.train.patients:
+        patient = brats.train.patients[patient_id]
+
+        patient.id
+        patient.name
+        patient.age
+        patient.mri_data
+        patient.seg
+
+        # these should properly index into the mri_data
+        patient.flair
+        patient.t1
+        # etc...
+
+    # Need to get other slices too
+    brats.HGG.patients
+    brats.LGG.patients
+
+
+    brats.validation.patients
+
+
+    # If you just have one of the datasets
+    brats = BraTS.BraTSDataSet(root="/Uesrs/.../.../BraTS2017")
+
+    # This should work too
+    brats = BraTS.BraTSDataSet(years=[2015, 2016, 2018])
+
+
 
 
     logger.info("Data-set loaded.")

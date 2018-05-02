@@ -55,7 +55,7 @@ def visualize(filename, data):
 def main():
 
     directory = sys.argv[1]
-    for filename in listdir(directory)
+    for filename in listdir(directory):
         print("visualizing: %s ..." % filename)
         img = nib.load(filename)
         data = img.get_data()

@@ -20,9 +20,20 @@ from nibabel.testing import data_path
 from BraTS.Patient import *
 from BraTS.load_utils import *
 
-_brats_root = None
+_brats_root_dir = None
+
+
 def set_root(new_brats_root):
-    _brats_root = new_brats_root
+    """
+    Set the root directory containing multiple BraTS datasets
+
+    :param new_brats_root: The new path to the root directory
+    :return: None
+    """
+    if not isinstance(new_brats_root, str):
+        raise Exception("New root was not a string")
+    global _brats_root_dir
+    _brats_root_dir = new_brats_root
 
 
 class DataSubSet:
@@ -112,11 +123,11 @@ class DataSet(object):
             self._root = root
 
         elif year is not None:
-            if _brats_root is None:
+            if _brats_root_dir is None:
                 raise Exception("Must set_root before using year argument")
 
-            year_dir = find_file_containing(_brats_root, str(year % 100))
-            self._root = os.path.join(_brats_root, year_dir)
+            year_dir = find_file_containing(_brats_root_dir, str(year % 100))
+            self._root = os.path.join(_brats_root_dir, year_dir)
 
         else:
             raise Exception("Pass root or year optional argument")

@@ -18,7 +18,6 @@ def find_file_containing(directory, keyword, case_sensitive=False):
     :return: The joined path to the file containing the keyword in
     it's name, if found, else None.
     """
-
     if not isinstance(directory, str):
         raise ValueError("root_dir is not a string.")
 
@@ -37,11 +36,13 @@ def find_file_containing(directory, keyword, case_sensitive=False):
 
 def find_file_named(root, name):
     """
-    Finds the directory containing the imaging data for a given patient ID
-    :param brats_root: Root directory to the
-    :return:
-    """
+    Find a file named something
 
+    :param root: Root directory to search recursively through
+    :param name: The name of the file to search for
+    :return: Full path to the (first!) file with the specified name found,
+    or None if no file was found of that name.
+    """
     if not isinstance(root, str):
         raise ValueError("root is not a string.")
 

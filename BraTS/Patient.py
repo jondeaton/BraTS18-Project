@@ -5,11 +5,13 @@ Date: 5/1/18
 Author: Jon Deaton (jdeaton@stanford.edu)
 """
 
-mri_shape = (4,) + img_shape
+image_types = ("flair", "t1", "t1ce", "t2")
+
+img_shape = (240, 240, 155)
+mri_shape = (len(image_types),) + img_shape
 
 import numpy as np
 import nibabel as nib
-from nibabel.testing import data_path
 
 from BraTS.load_utils import *
 
@@ -23,10 +25,10 @@ def load_patient_data(patient_data_dir):
 
     # Load Flair, T1, T1-ce, T2 into a Numpy Array
     mri_data = np.empty(shape=mri_shape)
-    for i, keyword in enumerate(("flair", "t1.", "t1ce.", "t2")):
-        img_file = find_file_containing(patient_data_dir, keyword)
+    for i, img_type in enumerate(image_types):
+        img_file = find_file_containing(patient_data_dir, "%s." % img_type)
         if img_file is None:
-            raise Exception("Could not find %s image file for patient %s" % (keyword, patient_data_dir))
+            raise Exception("Could not find %s image file for patient %s" % (img_type, patient_data_dir))
 
         img = nib.load(img_file).get_data()
         if img.shape != mri_shape:

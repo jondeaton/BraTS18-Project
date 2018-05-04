@@ -22,7 +22,7 @@ def load_patient_data(patient_data_dir):
     :param patient_data_dir:
     :return: Tuple containing a tf.Tensor containing MRI data
     """
-
+    print("Loading: %s" % os.path.split(patient_data_dir)[1])
     # Load Flair, T1, T1-ce, T2 into a Numpy Array
     mri_data = np.empty(shape=mri_shape)
     for i, img_type in enumerate(image_types):
@@ -31,7 +31,7 @@ def load_patient_data(patient_data_dir):
             raise Exception("Could not find %s image file for patient %s" % (img_type, patient_data_dir))
 
         img = nib.load(img_file).get_data()
-        if img.shape != mri_shape:
+        if img.shape != img_shape:
             raise Exception("Unexpected image shape %s in file %s" % (img.shape, img_file))
         mri_data[i] = img
 

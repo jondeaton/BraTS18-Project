@@ -29,7 +29,7 @@ def find_file_containing(directory, keyword, case_sensitive=False):
 
     # Iterate through files
     for file in os.listdir(directory):
-        if keyword in file if case_sensitive else file.lower():
+        if keyword in (file if case_sensitive else file.lower()):
             return os.path.join(directory, file)
     return None
 

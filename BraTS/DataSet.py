@@ -12,16 +12,12 @@ import os
 
 import pandas as pd
 import numpy as np
-import tensorflow as tf
-
 import nibabel as nib
-from nibabel.testing import data_path
 
 from BraTS.Patient import *
 from BraTS.load_utils import *
 
 _brats_root_dir = None
-
 
 def set_root(new_brats_root):
     """
@@ -35,26 +31,26 @@ def set_root(new_brats_root):
     global _brats_root_dir
     _brats_root_dir = new_brats_root
 
+survival_df_cache = {}  # Prevents loading CSVs more than once
 
 class DataSubSet:
 
-    def __init__(self, survival_df, patient_ids, dir_map):
+    def __init__(self, dir_map, survival_csv):
         self._dir_map = dir_map
-        self._patient_ids = list(patient_ids)
-        self._survival_df = survival_df
+        self._patient_ids = list(dir_map.keys())
+        self._survival_csv = survival_csv
         self._num_patients = len(self._patient_ids)
 
         # Data caches
         self._mris = None
         self._segs = None
-        self._dataset = None
         self._patients = None
+        self._survival_df_cached = None
 
     @property
     def mris(self):
         if self._mris is not None:
             return self._mris
-
         self._load_images()
         return self._mris
 
@@ -66,10 +62,10 @@ class DataSubSet:
         return self._segs
 
     def _load_images(self):
-        imgs_shape = (self._num_patients,) + mri_shape
-        segs_shape = (self._num_patients,) + imgs_shape
+        mris_shape = (self._num_patients,) + mri_shape
+        segs_shape = (self._num_patients,) + img_shape
 
-        self._mris = np.empty(shape=imgs_shape)
+        self._mris = np.empty(shape=mris_shape)
         self._segs = np.empty(shape=segs_shape)
 
         # If patients was already loaded
@@ -81,13 +77,9 @@ class DataSubSet:
             # Load it from scratch
             for i, patient_id in enumerate(self._patient_ids):
                 patient_dir = self._dir_map[patient_id]
-                self._mris[i], self._segs[i] = load_patient_data(patient_dir)
-
-    @property
-    def dataset(self):
-        if self._dataset is not None:
-            return self._dataset
-        return tf.data.Dataset.from_tensor_slices((self.mris, self.segs))
+                mri, seg = load_patient_data(patient_dir)
+                self._mris[i] = mri
+                self._segs[i] = seg
 
     @property
     def patients(self):
@@ -114,6 +106,34 @@ class DataSubSet:
             self._patients[patient_id] = patient
         return self._patients
 
+    @property
+    def _survival_df(self):
+        if self._survival_df_cached is None:
+            if self._survival_csv not in survival_df_cache:
+                df = self._load_survival(self._survival_csv)
+                survival_df_cache[self._survival_csv] = df
+            else:
+                df = survival_df_cache[self._survival_csv]
+            self._survival_df_cached = df.loc[df.id.isin(self._patient_ids)]
+        return self._survival_df_cached
+
+    @classmethod
+    def _load_survival(cls, survival_csv):
+        try:
+            survival = pd.read_csv(survival_csv)
+        except:
+            raise Exception("Error reading survival CSV file: %s" % survival_csv)
+        return cls._rename_columns(survival)
+
+    @classmethod
+    def _rename_columns(cls, df):
+        # Rename the columns
+        if df.shape[1] == 3:
+            df.columns = ['id', 'age', 'survival']
+        elif df.shape[1] == 4:
+            df.columns = ['id', 'age', 'survival', 'resection']
+        else:
+            raise Exception("Unknown columns in survival: %s" % df.columns)
 
 class DataSet(object):
 
@@ -128,29 +148,32 @@ class DataSet(object):
 
             year_dir = find_file_containing(_brats_root_dir, str(year % 100))
             self._root = os.path.join(_brats_root_dir, year_dir)
-
         else:
             raise Exception("Pass root or year optional argument")
 
-        self._survival = None
-
+        self._validation = None
         self._train = None
-        self._dev = False
-        self._validation = False
-
         self._HGG = False
         self._LGG = False
 
         self._dir_map_cache = None
 
-        self._train_dir = None
         self._val_dir = None
+        self._train_dir_cached = None
+        self._hgg_dir = os.path.join(self._train_dir, "HGG")
+        self._lgg_dir = os.path.join(self._train_dir, "LGG")
 
-        self._hgg_dir = os.path.join(self._training_dir, "HGG")
-        self._lgg_dir = os.path.join(self._training_dir, "LGG")
+        self._train_survival_csv_cached = None
+        self._validation_survival_csv_cached = None
 
         self._train_ids = None
-        self._dev_ids = None
+        self._hgg_ids_cached = None
+        self._lgg_ids_cached = None
+
+        self._train_dir_map_cache = None
+        self._validation_dir_map_cache = None
+        self._hgg_dir_map_cache = None
+        self._lgg_dir_map_cache = None
 
     @property
     def train(self):
@@ -160,59 +183,27 @@ class DataSet(object):
         Loads the training data from disk, utilizing caching
         :return: A tf.data.Dataset object containing the training data
         """
-        if self._train is not None:
-            return self._train  # return cached value
-
-        ids = os.path.listdir(self._hgg_dir) + os.path.listdir(self._lgg_dir)
-        self._train = DataSubSet(self.survival, ids, self._dir_map)
+        if self._train is None:
+            self._train = DataSubSet(self._train_dir_map, self._train_survival_csv)
         return self._train
 
     @property
-    def dev(self):
-        if self._dev is not None:
-            return self._dev
-        # todo: split it with train
-        ids = os.path.listdir(self._hgg_dir) + os.path.listdir(self._lgg_dir)
-        self._dev = DataSubSet(self.survival, ids, self._dir_map)
-        return self._dev
-
-    @property
     def validation(self):
-        if self._validation is not None:
-            return self._validation
-
-
+        if self._validation is None:
+            self._validation = DataSubSet(self._validation_dir_map, self._validation_survival_csv)
+        return self._validation
 
     @property
     def HGG(self):
-        if self._HGG is not None:
-            return self._HGG
-
-        ids = os.path.listdir(self._hgg_dir)
-        self._HGG = DataSubSet(self.survival, ids, self._dir_map)
+        if self._HGG is None:
+            self._HGG = DataSubSet(self._hgg_dir_map, self._train_survival_csv)
         return self._HGG
 
     @property
     def LGG(self):
-        if self._LGG is not None:
-            return self._LGG
-
-        ids = os.path.listdir(self._hgg_dir)
-        self._LGG = DataSubSet(self.survival, ids, self._dir_map)
+        if self._LGG is None:
+            self._HGG = DataSubSet(self._lgg_dir_map, self._train_survival_csv)
         return self._LGG
-
-    @property
-    def survival(self):
-        if self._survival is not None:
-            return self._survival
-
-        survival_csv = find_file_containing(self._train_dir, "survival")
-        if survival_csv is None:
-            raise Exception("Couldn't find survival data.")
-
-        self._survival = pd.read_csv(survival_csv)
-        self._survival.columns = ['id', 'age', 'survival']
-        return self._survival
 
     def drop_cache(self):
         """
@@ -225,13 +216,29 @@ class DataSet(object):
         self._survival_df = None
 
     @property
-    def _training_dir(self):
-        if self._train_dir is not None:
-            return self._train_dir
-        self._train_dir = find_file_containing(self._root, "training")
-        if self._train_dir is None:
+    def _train_survival_csv(self):
+        if self._train_survival_csv_cached is None:
+            self._train_survival_csv_cached = find_file_containing(self._train_dir, "survival")
+            if self._train_survival_csv_cached is None:
+                raise Exception("Could not find survival CSV in %s" % self._train_dir)
+        return self._train_survival_csv_cached
+
+    @property
+    def _validation_survival_csv(self):
+        if self._validation_survival_csv_cached is None:
+            self._validation_survival_csv_cached = find_file_containing(self._validation_dir, "survival")
+            if self._validation_survival_csv_cached is None:
+                raise Exception("Could not find survival CSV in %s" % self._validation_dir)
+        return self._validation_survival_csv_cached
+
+    @property
+    def _train_dir(self):
+        if self._train_dir_cached is not None:
+            return self._train_dir_cached
+        self._train_dir_cached = find_file_containing(self._root, "training")
+        if self._train_dir_cached is None:
             raise Exception("Could not find training directory in %s" % self._root)
-        return self._train_dir
+        return self._train_dir_cached
 
     @property
     def _validation_dir(self):
@@ -243,13 +250,44 @@ class DataSet(object):
         return self._val_dir
 
     @property
-    def _dir_map(self):
-        if self._dir_map_cache is not None:
-            return self._dir_map_cache
+    def _train_dir_map(self):
+        if self._train_dir_map_cache is None:
+            self._train_dir_map_cache = dict(self._hgg_dir_map)
+            self._train_dir_map_cache.update(self._lgg_dir_map)
+        return self._train_dir_map_cache
 
-        self._dir_map_cache = {}
-        for path, dirs, files in os.walk(self._root):
-            for file in files:
-                if self.survival.id.str.contains(file).any:
-                    self._dir_map_cache[file] = os.path.join(path, file)
-        return self._dir_map_cache
+    @property
+    def _validation_dir_map(self):
+        if self._validation_dir_map_cache is None:
+            self._validation_dir_map_cache = self._directory_map(self._validation_dir)
+        return self._validation_dir_map_cache
+
+    @property
+    def _hgg_dir_map(self):
+        if self._hgg_dir_map_cache is None:
+            self._hgg_dir_map_cache = self._directory_map(self._hgg_dir)
+        return self._hgg_dir_map_cache
+
+    @property
+    def _lgg_dir_map(self):
+        if self._lgg_dir_map_cache is None:
+            self._lgg_dir_map_cache = self._directory_map(self._lgg_dir)
+        return self._lgg_dir_map_cache
+
+    @property
+    def _hgg_ids(self):
+        if self._hgg_ids_cached is None:
+            self._hgg_ids_cached = os.listdir(self._hgg_dir)
+        return self._hgg_ids_cached
+
+    @property
+    def _lgg_ids(self):
+        if self._lgg_ids_cached is None:
+            self._lgg_ids_cached = os.listdir(self._lgg_dir)
+        return self._lgg_ids_cached
+
+    @classmethod
+    def _directory_map(cls, dir):
+        return { file: os.path.join(dir, file)
+                 for file in os.listdir(dir)
+                 if os.path.isdir(os.path.join(dir, file)) }

@@ -5,12 +5,12 @@ timestamp=`date +%s`
 
 job_name="signs_local_$timestamp"
 tensorboard_dir="SIGNS/tensorboard"
-dataset_dir="SIGNS/datasets"
+brats_root="~/Datasets/BraTS"
 
 python -m segmentation.train \
     --job-name "$job_name" \
     --tensorboard "$tensorboard_dir" \
-    --dataset-dir "$dataset_dir" \
+    --brats "$brats_root" \
     --learning-rate "0.0001" \
     --epochs 1500 \
     --mini-batch 128 \

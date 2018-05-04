@@ -25,7 +25,7 @@ import io
 import BraTS
 
 # Global Variables
-data_set_dir = None
+brats_directory = None
 tensorboard_dir = None
 save_file = None
 learning_rate = None
@@ -50,7 +50,7 @@ def parse_args():
     info_options_group.add_argument("-aws", "--aws", action="store_true", help="Running in Amazon Web Services")
 
     io_options_group = parser.add_argument_group("I/O")
-    io_options_group.add_argument("--dataset-dir", help="BraTS root dataset directory")
+    io_options_group.add_argument('--brats-root', help="BraTS root dataset directory")
     io_options_group.add_argument("--save-file", help="File to save trained model in")
     io_options_group.add_argument("--tensorboard", help="TensorBoard directory")
 
@@ -102,12 +102,12 @@ def main():
     else:
         logger.debug("Running locally.")
 
-    global tensorboard_dir, save_file, data_set_dir
-    data_set_dir = args.dataset_dir
+    global tensorboard_dir, save_file, brats_directory
+    brats_directory = os.path.expanduser(args.brats)
     tensorboard_dir = args.tensorboard
     save_file = args.save_file
 
-    logger.debug("Data-set Directory: %s" % data_set_dir)
+    logger.debug("Data-set Directory: %s" % brats_directory)
     logger.debug("TensorBoard Directory: %s" % tensorboard_dir)
     logger.debug("Save file: %s" % save_file)
 
@@ -122,22 +122,17 @@ def main():
 
     logger.info("Loading BraTS data-set...")
 
-
-    # Desired functionality
-    BraTS.set_root("/Users/jonpdeaton/Datasets/BraTS")
+    BraTS.set_root(brats_directory)
     brats = BraTS.DataSet(year=2018)
 
     images = brats.train.mris # raw numpy things
     segs = brats.train.seg # raw numpy things
 
     # The most important one: tf.data.Dataset
-    dataset = brats.train.dataset
-
-    brats.train.patients["some_ID"]
+    patient = brats.train.patients["some_ID"]
 
     for patient_id in brats.train.patients:
         patient = brats.train.patients[patient_id]
-
         patient.id
         patient.name
         patient.age

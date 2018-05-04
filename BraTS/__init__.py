@@ -7,6 +7,8 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 Brain Tumor Segmentation 2018 Data Set
 """
 
-from BraTS.DataSet import *
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
+from BraTS.DataSet import *
 

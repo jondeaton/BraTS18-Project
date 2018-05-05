@@ -20,15 +20,15 @@ tumors in MR images.
 
 In order to use the data loader make sure that your BraTS dataset directory is configured as shown:
 
-BraTS
-├── BraTS15
-│   ├── BraTS15_Training
-│   └── BraTS15_Validation
-├── BraTS17
-│   ├── BraTS17_Training
-│   └── BraTS17_Validation
-└── BraTS18
-    └── BraTS18_Training
+    BraTS
+    ├── BraTS15
+    │   ├── BraTS15_Training
+    │   └── BraTS15_Validation
+    ├── BraTS17
+    │   ├── BraTS17_Training
+    │   └── BraTS17_Validation
+    └── BraTS18
+        └── BraTS18_Training
  
  
  You can import the BraTS data-loader into Python
@@ -52,7 +52,8 @@ BraTS
     patient = brats.train.patient("Brats18_2013_7_1")
     patients = brats.train.patients["Brats18_2013_7_1"]
     
-    # 
+    # Access to all the patient IDs
+    patient_ids = brats.train.ids
     
- Be aware that it takes a few minutes to load the dataset into memory.
+ Be aware that it takes a few minutes to load the full data-set into memory.
  

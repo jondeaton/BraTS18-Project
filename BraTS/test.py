@@ -20,10 +20,15 @@ BraTS.set_root(brats_root)
 
 class BraTSTest(unittest.TestCase):
 
-    def test_train_images(self):
+    def test_patient(self):
         brats = BraTS.DataSet(year=2017)
-        train_mris = brats.train.mris
-        self.assertIsInstance(train_mris, np.ndarray)
+        patient = brats.train.patient("Brats17_TCIA_167_1")
+
+        self.assertIsInstance(patient.id, str)
+        self.assertIsInstance(patient.age, float)
+        self.assertIsInstance(patient.survival, int)
+        self.assertIsInstance(patient.mri, np.ndarray)
+        self.assertIsInstance(patient.seg, np.ndarray)
 
 
 if __name__ == "__main__":

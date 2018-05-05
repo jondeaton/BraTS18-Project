@@ -16,7 +16,7 @@ import nibabel as nib
 from BraTS.load_utils import *
 
 
-def load_patient_data(patient_data_dir):
+def load_patient_data(patient_data_dir, mri_array=None, seg_array=None, index=None):
     """
 
     :param patient_data_dir:
@@ -24,7 +24,9 @@ def load_patient_data(patient_data_dir):
     """
     print("Loading: %s" % os.path.split(patient_data_dir)[1])
     # Load Flair, T1, T1-ce, T2 into a Numpy Array
-    mri_data = np.empty(shape=mri_shape)
+    if mri_array is None:
+        mri_data = np.empty(shape=mri_shape)
+
     for i, img_type in enumerate(image_types):
         img_file = find_file_containing(patient_data_dir, "%s." % img_type)
         if img_file is None:
@@ -33,17 +35,27 @@ def load_patient_data(patient_data_dir):
         img = nib.load(img_file).get_data()
         if img.shape != img_shape:
             raise Exception("Unexpected image shape %s in file %s" % (img.shape, img_file))
-        mri_data[i] = img
+
+        if mri_array is None:
+            mri_data[i] = img
+        else:
+            mri_array[index, i] = img
 
     # Load segmentation data
     seg_file = find_file_containing(patient_data_dir, "seg")
     if seg_file is None:
         raise Exception("Couldn't find segmentation data for patient %s" % patient_data_dir)
+
     seg_data = nib.load(seg_file).get_data()
-    return mri_data, seg_data
+    if seg_array is not None:
+        seg_array[index] = seg_data
+
+    if mri_array is None:
+        return mri_data, seg_data
 
 
 class Patient:
+
     def __init__(self, id, age=None, survival=None, mri=None, seg=None):
         self.id = id
         self.age = age

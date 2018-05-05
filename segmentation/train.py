@@ -121,46 +121,10 @@ def main():
     logger.info("Mini-batch size: %s" % mini_batch_size)
 
     logger.info("Loading BraTS data-set...")
-
     BraTS.set_root(brats_directory)
     brats = BraTS.DataSet(year=2018)
-
     images = brats.train.mris # raw numpy things
-    segs = brats.train.seg # raw numpy things
-
-    # The most important one: tf.data.Dataset
-    patient = brats.train.patients["some_ID"]
-
-    for patient_id in brats.train.patients:
-        patient = brats.train.patients[patient_id]
-        patient.id
-        patient.name
-        patient.age
-        patient.mri_data
-        patient.seg
-
-        # these should properly index into the mri_data
-        patient.flair
-        patient.t1
-        # etc...
-
-    # Need to get other slices too
-    brats.HGG.patients
-    brats.LGG.patients
-
-
-    brats.validation.patients
-
-
-    # If you just have one of the datasets
-    brats = BraTS.BraTSDataSet(root="/Uesrs/.../.../BraTS2017")
-
-    # This should work too
-    brats = BraTS.BraTSDataSet(years=[2015, 2016, 2018])
-
-
-
-
+    segs = brats.train.seg    # raw numpy things
     logger.info("Data-set loaded.")
 
     train(X_train, Y_train, X_test, Y_test)

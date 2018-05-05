@@ -17,7 +17,9 @@ import nibabel as nib
 from BraTS.Patient import *
 from BraTS.load_utils import *
 
+# The root directory of all the BraTS data-sets
 _brats_root_dir = None
+
 
 def set_root(new_brats_root):
     """
@@ -27,25 +29,34 @@ def set_root(new_brats_root):
     :return: None
     """
     if not isinstance(new_brats_root, str):
-        raise Exception("New root was not a string")
+        raise TypeError("Expected root to be a string")
     global _brats_root_dir
     _brats_root_dir = new_brats_root
 
+
 survival_df_cache = {}  # Prevents loading CSVs more than once
+
+import multiprocessing as mp
 
 class DataSubSet:
 
     def __init__(self, dir_map, survival_csv):
         self._dir_map = dir_map
-        self._patient_ids = list(dir_map.keys())
+        self._patient_ids = sorted(list(dir_map.keys()))
         self._survival_csv = survival_csv
         self._num_patients = len(self._patient_ids)
 
         # Data caches
         self._mris = None
         self._segs = None
-        self._patients = None
+        self._patients = {}
         self._survival_df_cached = None
+        self._patients_fully_loaded = False
+        self._id_indexer = {patient_id: i for i, patient_id in enumerate(self._patient_ids)}
+
+    @property
+    def ids(self):
+        return self._patient_ids
 
     @property
     def mris(self):
@@ -68,72 +79,78 @@ class DataSubSet:
         self._mris = np.empty(shape=mris_shape)
         self._segs = np.empty(shape=segs_shape)
 
-        # If patients was already loaded
-        if self._patients is not None:
+
+        if self._patients_fully_loaded:
+            # All the patients were already loaded
             for i, patient in enumerate(self._patients.values()):
                 self._mris[i] = patient.mri_data
                 self._segs[i] = patient.seg
         else:
+            n = 10
             # Load it from scratch
             for i, patient_id in enumerate(self._patient_ids):
+                if i == n: break
                 patient_dir = self._dir_map[patient_id]
-                mri, seg = load_patient_data(patient_dir)
-                self._mris[i] = mri
-                self._segs[i] = seg
+                load_patient_data(patient_dir, mri_array=self._mris, seg_array=self._segs, index=i)
 
     @property
     def patients(self):
-        if self._patients is not None:
-            return self._patients
+        """
+        Loads ALL of the patients from disk into patient objects
 
-        # Construct the patients dictionary
-        self._patients = {}
-        for i, patient_id in enumerate(self._patient_ids):
-            patient = Patient(patient_id)
-            patient.age = self._survival_df.loc[self._survival_df.id == patient_id].Age
-            patient.survival = self._survival_df.loc[self._survival_df.id == patient_id].Survival
+        :return: A dictionary containing ALL patients
+        """
 
-            if self._mris is not None:
-                # Load from _mris and _segs if possible
-                patient.mri = self._mris[i]
-                patient.seg = self._segs[i]
-            else:
-                # Load the image and segmentation data
-                patient_dir = self._dir_map[patient_id]
-                patient.mri, patient.survival = load_patient_data(patient_dir)
-
-            # Store the patient object in the dictionary
-            self._patients[patient_id] = patient
+        if not self._patients_fully_loaded:
+            # Construct the patients dictionary
+            self._patients = {}
+            for i, patient_id in enumerate(self._patient_ids):
+                self._patients[patient_id] = self.patient(patient_id)
+            self._patients_fully_loaded = True
         return self._patients
+
+    def patient(self, patient_id):
+        """
+        Loads only a single patient from disk
+
+        :param patient_id: The patient ID
+        :return: A Patient object loaded from disk
+        """
+
+        if patient_id not in self._patient_ids:
+            raise ValueError("Patient id \"%s\" not present." % patient_id)
+
+        if patient_id in self._patients:
+            # Return cached value if present
+            return self._patients[patient_id]
+
+        patient = Patient(patient_id)
+
+        df = self._survival_df
+        if patient_id in df.id.values:
+            patient.age = float(df.loc[df.id == patient_id].age)
+            patient.survival = int(df.loc[df.id == patient_id].survival)
+
+        if self._mris is not None and self._segs is not None:
+            # Load from _mris and _segs if possible
+            index = self._id_indexer[patient_id]
+            patient.mri = self._mris[index]
+            patient.seg = self._segs[index]
+        else:
+            # Load the mri and segmentation data from disk
+            patient_dir = self._dir_map[patient_id]
+            patient.mri, patient.seg = load_patient_data(patient_dir)
+
+        self._patients[patient_id] = patient  # cache the value for later
+        return patient
 
     @property
     def _survival_df(self):
-        if self._survival_df_cached is None:
-            if self._survival_csv not in survival_df_cache:
-                df = self._load_survival(self._survival_csv)
-                survival_df_cache[self._survival_csv] = df
-            else:
-                df = survival_df_cache[self._survival_csv]
-            self._survival_df_cached = df.loc[df.id.isin(self._patient_ids)]
-        return self._survival_df_cached
-
-    @classmethod
-    def _load_survival(cls, survival_csv):
-        try:
-            survival = pd.read_csv(survival_csv)
-        except:
-            raise Exception("Error reading survival CSV file: %s" % survival_csv)
-        return cls._rename_columns(survival)
-
-    @classmethod
-    def _rename_columns(cls, df):
-        # Rename the columns
-        if df.shape[1] == 3:
-            df.columns = ['id', 'age', 'survival']
-        elif df.shape[1] == 4:
-            df.columns = ['id', 'age', 'survival', 'resection']
-        else:
-            raise Exception("Unknown columns in survival: %s" % df.columns)
+        if self._survival_csv in survival_df_cache:
+            return survival_df_cache[self._survival_csv]
+        df = load_survival(self._survival_csv)
+        survival_df_cache[self._survival_csv] = df
+        return df
 
 class DataSet(object):
 
@@ -153,8 +170,8 @@ class DataSet(object):
 
         self._validation = None
         self._train = None
-        self._HGG = False
-        self._LGG = False
+        self._hgg = False
+        self._lgg = False
 
         self._dir_map_cache = None
 
@@ -189,21 +206,26 @@ class DataSet(object):
 
     @property
     def validation(self):
+        """
+        Validation data
+
+        :return: Validation data
+        """
         if self._validation is None:
             self._validation = DataSubSet(self._validation_dir_map, self._validation_survival_csv)
         return self._validation
 
     @property
-    def HGG(self):
-        if self._HGG is None:
-            self._HGG = DataSubSet(self._hgg_dir_map, self._train_survival_csv)
-        return self._HGG
+    def hgg(self):
+        if self._hgg is None:
+            self._hgg = DataSubSet(self._hgg_dir_map, self._train_survival_csv)
+        return self._hgg
 
     @property
-    def LGG(self):
-        if self._LGG is None:
-            self._HGG = DataSubSet(self._lgg_dir_map, self._train_survival_csv)
-        return self._LGG
+    def lgg(self):
+        if self._lgg is None:
+            self._lgg = DataSubSet(self._lgg_dir_map, self._train_survival_csv)
+        return self._lgg
 
     def drop_cache(self):
         """

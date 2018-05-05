@@ -15,14 +15,16 @@ brats = BraTS.DataSet(year=2017)
 
 
 def load():
-    x = brats.train.mris
+    subset = brats.train.subset(brats.train.ids[:10])
+    x = subset.mris
 
 
 def load_n(n=10):
     for i in range(n):
         p = brats.train.patient(brats.train.ids[i])
 
-s = timeit.timeit(load_n)
+
+s = timeit.timeit(load)
 print("Time: %s sec" % s)
 
 

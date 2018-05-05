@@ -36,7 +36,6 @@ def set_root(new_brats_root):
 
 survival_df_cache = {}  # Prevents loading CSVs more than once
 
-import multiprocessing as mp
 
 class DataSubSet:
 
@@ -53,6 +52,16 @@ class DataSubSet:
         self._survival_df_cached = None
         self._patients_fully_loaded = False
         self._id_indexer = {patient_id: i for i, patient_id in enumerate(self._patient_ids)}
+
+    def subset(self, patient_ids):
+        """
+        Split this data subset into a small subset by patient ID
+
+        :param n: The number of elements in the smaller training set
+        :return: A new data subset with only the specified number of items
+        """
+        dir_map = {id: self._dir_map[id] for id in patient_ids}
+        return DataSubSet(dir_map, self._survival_csv)
 
     @property
     def ids(self):
@@ -86,10 +95,8 @@ class DataSubSet:
                 self._mris[i] = patient.mri_data
                 self._segs[i] = patient.seg
         else:
-            n = 10
             # Load it from scratch
             for i, patient_id in enumerate(self._patient_ids):
-                if i == n: break
                 patient_dir = self._dir_map[patient_id]
                 load_patient_data(patient_dir, mri_array=self._mris, seg_array=self._segs, index=i)
 
@@ -152,8 +159,9 @@ class DataSubSet:
         survival_df_cache[self._survival_csv] = df
         return df
 
-class DataSet(object):
 
+
+class DataSet(object):
     def __init__(self, root=None, year=None):
 
         if root is not None:

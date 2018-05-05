@@ -5,7 +5,7 @@ Date: 5/1/18
 Author: Jon Deaton (jdeaton@stanford.edu)
 """
 
-image_types = ("flair", "t1", "t1ce", "t2")
+from BraTS.image_types import *
 
 img_shape = (240, 240, 155)
 mri_shape = (len(image_types),) + img_shape
@@ -16,41 +16,39 @@ import nibabel as nib
 from BraTS.load_utils import *
 
 
-def load_patient_data(patient_data_dir, mri_array=None, seg_array=None, index=None):
+def load_patient_data(patient_data_dir,
+                      mri_array=None, seg_array=None, index=None):
     """
+    Load a single patient's image data
 
-    :param patient_data_dir:
+    :param patient_data_dir: Directory containing image data
     :return: Tuple containing a tf.Tensor containing MRI data
     """
-    print("Loading: %s" % os.path.split(patient_data_dir)[1])
-    # Load Flair, T1, T1-ce, T2 into a Numpy Array
-    if mri_array is None:
+
+    load_inplace = mri_array is not None and seg_array is not None
+
+    if not load_inplace:
         mri_data = np.empty(shape=mri_shape)
 
-    for i, img_type in enumerate(image_types):
-        img_file = find_file_containing(patient_data_dir, "%s." % img_type)
-        if img_file is None:
-            raise Exception("Could not find %s image file for patient %s" % (img_type, patient_data_dir))
-
+    for img_file in listdir(patient_data_dir):
         img = nib.load(img_file).get_data()
-        if img.shape != img_shape:
-            raise Exception("Unexpected image shape %s in file %s" % (img.shape, img_file))
+        img_type = get_image_type(img_file)
 
-        if mri_array is None:
-            mri_data[i] = img
+        if img_type == ImageType.seg:
+            seg_data = img
+            continue
+
+        channel_index = mri_indices[img_type]
+
+        if load_inplace:
+            mri_array[index, channel_index] = img
         else:
-            mri_array[index, i] = img
+            mri_data[channel_index] = img
 
     # Load segmentation data
-    seg_file = find_file_containing(patient_data_dir, "seg")
-    if seg_file is None:
-        raise Exception("Couldn't find segmentation data for patient %s" % patient_data_dir)
-
-    seg_data = nib.load(seg_file).get_data()
-    if seg_array is not None:
+    if load_inplace:
         seg_array[index] = seg_data
-
-    if mri_array is None:
+    else:
         return mri_data, seg_data
 
 

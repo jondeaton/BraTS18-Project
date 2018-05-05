@@ -87,3 +87,13 @@ def find_file_named(root, name):
     return None
 
 
+def listdir(directory):
+    """
+    Gets the full paths to the contents of a directory
+
+    :param directory: A path to some directory
+    :return: An iterator yielding full paths to all files in the specified directory
+    """
+    m = map(lambda d: os.path.join(directory, d), os.listdir(directory))
+    contents = [f for f in m if not f.startswith('.')]
+    return contents

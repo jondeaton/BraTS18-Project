@@ -50,7 +50,7 @@ def parse_args():
     info_options_group.add_argument("-aws", "--aws", action="store_true", help="Running in Amazon Web Services")
 
     io_options_group = parser.add_argument_group("I/O")
-    io_options_group.add_argument('--brats-root', help="BraTS root dataset directory")
+    io_options_group.add_argument('--brats', help="BraTS root dataset directory")
     io_options_group.add_argument("--save-file", help="File to save trained model in")
     io_options_group.add_argument("--tensorboard", help="TensorBoard directory")
 
@@ -121,11 +121,19 @@ def main():
     logger.info("Mini-batch size: %s" % mini_batch_size)
 
     logger.info("Loading BraTS data-set...")
+
     BraTS.set_root(brats_directory)
     brats = BraTS.DataSet(year=2018)
-    images = brats.train.mris # raw numpy things
-    segs = brats.train.seg    # raw numpy things
+
+    ids = brats.train.ids[:10]  # just get the first few ids
+    subset = brats.train.subset(ids)
+
+    mris = subset.mris
+    segs = subset.segs
+
     logger.info("Data-set loaded.")
+
+
 
     train(X_train, Y_train, X_test, Y_test)
 

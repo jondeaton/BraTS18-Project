@@ -28,8 +28,7 @@ def set_root(new_brats_root):
     :param new_brats_root: The new path to the root directory
     :return: None
     """
-    if not isinstance(new_brats_root, str):
-        raise TypeError("Expected root to be a string")
+    assert isinstance(new_brats_root, str)
     global _brats_root_dir
     _brats_root_dir = new_brats_root
 
@@ -65,7 +64,13 @@ class DataSubSet:
 
     @property
     def ids(self):
-        return self._patient_ids
+        """
+        List of all patient IDs in this dataset
+
+        Will copy the ids... so modify them all you want
+        :return: Copy of the patient IDs
+        """
+        return list(self._patient_ids)
 
     @property
     def mris(self):
@@ -160,10 +165,8 @@ class DataSubSet:
         return df
 
 
-
 class DataSet(object):
     def __init__(self, root=None, year=None):
-
         if root is not None:
             self._root = root
 

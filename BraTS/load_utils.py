@@ -48,14 +48,11 @@ def find_file_containing(directory, keyword, case_sensitive=False):
     :return: The joined path to the file containing the keyword in
     it's name, if found, else None.
     """
-    if not isinstance(directory, str):
-        raise ValueError("root_dir is not a string.")
-
-    if not isinstance(keyword, str):
-        raise ValueError("keyword is not a string")
+    assert isinstance(directory, str)
+    assert isinstance(keyword, str)
 
     if not os.path.isdir(directory):
-        raise FileNotFoundError("Not found: %s" % directory)
+        raise FileNotFoundError(directory)
 
     # Iterate through files
     for file in os.listdir(directory):
@@ -73,11 +70,8 @@ def find_file_named(root, name):
     :return: Full path to the (first!) file with the specified name found,
     or None if no file was found of that name.
     """
-    if not isinstance(root, str):
-        raise ValueError("root is not a string.")
-
-    if not isinstance(name, str):
-        raise ValueError("name is not a string")
+    assert isinstance(root, str)
+    assert isinstance(name, str)
 
     # Search the directory recursively
     for path, dirs, files in os.walk(root):

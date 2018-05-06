@@ -21,11 +21,11 @@ from tensorflow.python.framework import ops
 from tensorflow.python.lib.io import file_io
 import io
 
-# Import data-set
 import BraTS
+from segmentation.BraTS_partitions import train_Dataset, test_DataSet, validation_Dataset
+
 
 # Global Variables
-brats_directory = None
 tensorboard_dir = None
 save_file = None
 learning_rate = None
@@ -33,6 +33,11 @@ num_epochs = None
 mini_batch_size = None
 
 logger = logging.getLogger()
+
+def train(train_set, test_set):
+    # todo!
+    pass
+
 
 def parse_args():
     """
@@ -122,20 +127,10 @@ def main():
 
     logger.info("Loading BraTS data-set...")
 
-    BraTS.set_root(brats_directory)
-    brats = BraTS.DataSet(year=2018)
-
-    ids = brats.train.ids[:10]  # just get the first few ids
-    subset = brats.train.subset(ids)
-
-    mris = subset.mris
-    segs = subset.segs
+    train_set, test_set, validation_set = load_dataset()
 
     logger.info("Data-set loaded.")
-
-
-
-    train(X_train, Y_train, X_test, Y_test)
+    train(train_set, test_set)
 
 
 

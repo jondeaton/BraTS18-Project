@@ -15,6 +15,7 @@ inflating the dataset to be 50 GB so this is probably not a viable solution
 Instead we are exploring creating a tf.Dataset from a genreator
 built on top of the BraTS loader module
 
+Better solution: use GZIP format for the TFRecords and it stays like 2GB
 """
 
 import os
@@ -59,9 +60,10 @@ def transform_patient(brats_root, patient_id, output_directory):
     feature = {'train/mri': mri, 'train/seg': seg}
     example = tf.train.Example(features=tf.train.Features(feature=feature))
 
-    # Write it to file
-    tf_record_filename = os.path.join(output_directory, "%s.tfrecord" % patient_id)
-    with tf.python_io.TFRecordWriter(tf_record_filename) as writer:
+    # Write it to file (compressed)
+    tf_record_filename = os.path.join(output_directory, "%s.tfrecord.gzip" % patient_id)
+    options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
+    with tf.python_io.TFRecordWriter(tf_record_filename, options=options) as writer:
         writer.write(example.SerializeToString())
 
 

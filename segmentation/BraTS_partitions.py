@@ -42,12 +42,14 @@ def test_dataset_gen():
         yield (patient.mri, patient.seg)
 
 
-def get_test_Dataset():
+def get_test_dataset():
     return tf.data.Dataset().from_generator(train_dataset_gen,
-                                            output_types=(tf.float32,tf.int32),
+                                            output_types=(tf.float32, tf.int32),
                                             output_shapes=(mri_shape, image_shape))
 
+
 def get_ids(ids_filename):
+    assert isinstance(ids_filename, str)
     full_path = os.path.join(partition_store, ids_filename)
     with open(full_path, 'r') as f:
         return set(f.readlines())

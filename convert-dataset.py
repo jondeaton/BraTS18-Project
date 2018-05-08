@@ -40,11 +40,12 @@ def transform_patient_shell(args):
     transform_patient(*args)
 
 
-def transform_patient(brats, patient_id, output_directory):
+def transform_patient(brats_root, year, output_directory, patient_id):
 
     logger.info("Transforming: %s" % patient_id)
 
     # Load the patient data
+    brats = BraTS.DataSet(brats_root=brats_root, year=year)
     patient = brats.train.patient(patient_id)
 
     # Gotta compress it to a 1D array first :/
@@ -66,7 +67,7 @@ def transform_patient(brats, patient_id, output_directory):
         writer.write(example.SerializeToString())
 
 
-def write_dataset(brats_root, ids, output_directory):
+def transform_brats(brats_root, year, output_directory, ids):
     if not os.path.isdir(output_directory):
         logger.debug("Creating output directory: %s" % output_directory)
         try:
@@ -75,20 +76,8 @@ def write_dataset(brats_root, ids, output_directory):
             logger.debug("Output directory exists: %s" % output_directory)
 
     pool = mp.Pool(pool_size)
-    arg_list = [(brats_root, patient_id, output_directory) for patient_id in ids]
+    arg_list = [(brats_root, year, output_directory, patient_id) for patient_id in ids]
     pool.map(transform_patient_shell, arg_list)
-
-
-def transform_brats(brats_root, output_dir, year, train_ids, test_ids, validation_ids):
-    brats = BraTS.DataSet(brats_root=brats_root, year=year)
-
-    train_records_dir = os.path.join(output_dir, train_records_dirname)
-    test_records_dir = os.path.join(output_dir, test_records_dirname)
-    validation_records_dir = os.path.join(output_dir, validation_records_dirname)
-
-    write_dataset(brats, train_ids, train_records_dir)
-    write_dataset(brats, test_ids, test_records_dir)
-    write_dataset(brats, validation_ids, validation_records_dir)
 
 
 def parse_args():
@@ -115,7 +104,7 @@ def parse_args():
 
     logging_options_group = parser.add_argument_group("Logging")
     logging_options_group.add_argument('--log', dest="log_level", default="WARNING", help="Logging level")
-    logging_options_group.add_argument('--log-file', default="model.log", help="Log file")
+    logging_options_group.add_argument('--log-file', default="convert.log", help="Log file")
 
     args = parser.parse_args()
 
@@ -160,7 +149,7 @@ def main():
     logger.debug("BraTS root: %s" % brats_root)
 
     if not os.path.exists(output_dir):
-        logging.debug("Creating output directory: %s" % output_dir)
+        logger.debug("Creating output directory: %s" % output_dir)
         try:
             os.mkdir(output_dir)
         except FileExistsError:
@@ -171,12 +160,8 @@ def main():
     logger.debug("Number of test examples: %d" % args.test)
     logger.info("Number of validation examples: %d" % args.validation)
 
-    train_ids = get_training_ids(args.partition_dir)
-    test_ids = get_test_ids(args.partition_dir)
-    validation_ids = get_validation_ids(args.partition_dir)
-
-    transform_brats(brats_root, output_dir, args.year,
-                    train_ids, test_ids, validation_ids)
+    brats = BraTS.DataSet(brats_root=brats_root, year=args.year)
+    transform_brats(brats_root, args.year, output_dir, brats.train.ids)
 
 
 if __name__ == "__main__":

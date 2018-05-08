@@ -3,8 +3,8 @@
 
 timestamp=`date +%s`
 
-job_name="signs_local_$timestamp"
-tensorboard_dir="SIGNS/tensorboard"
+job_name="brats_local_$timestamp"
+tensorboard_dir="segmentation/tensorboard"
 brats_root="~/Datasets/BraTS"
 
 python -m segmentation.train \

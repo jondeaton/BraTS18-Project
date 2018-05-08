@@ -29,19 +29,18 @@ import tensorflow as tf
 import numpy as np
 import multiprocessing as mp
 
-logger = logging.getLogger()
+from segmentation.partitions import *
+from segmentation.partitioning import *
 
-pool_size = 8
+logger = logging.getLogger()
+pool_size = 8  # Pool of worker processes
 
 
 def transform_patient_shell(args):
     transform_patient(*args)
 
 
-def transform_patient(brats_root, patient_id, output_directory):
-
-    BraTS.set_root(brats_root)
-    brats = BraTS.DataSet(year=2018)
+def transform_patient(brats, patient_id, output_directory):
 
     logger.info("Transforming: %s" % patient_id)
 
@@ -80,26 +79,16 @@ def write_dataset(brats_root, ids, output_directory):
     pool.map(transform_patient_shell, arg_list)
 
 
-def transform_brats(brats_root, output_dir, num_test=40, num_validation=40):
+def transform_brats(brats_root, output_dir, year, train_ids, test_ids, validation_ids):
+    brats = BraTS.DataSet(brats_root=brats_root, year=year)
 
-    BraTS.set_root(brats_root)
-    brats = BraTS.DataSet(year=2018)
+    train_records_dir = os.path.join(output_dir, train_records_dirname)
+    test_records_dir = os.path.join(output_dir, test_records_dirname)
+    validation_records_dir = os.path.join(output_dir, validation_records_dirname)
 
-    ids = brats.train.ids
-    shuffle(ids)
-
-    # Split up the patient IDs into test, validation and train
-    test_ids = ids[:num_test]
-    validation_ids = ids[num_test:(num_test + num_validation)]
-    train_ids = ids[(num_test + num_validation):]
-
-    train_records = os.path.join(output_dir, "train_records")
-    test_records = os.path.join(output_dir, "test_records")
-    validation_records = os.path.join(output_dir, "validation_records")
-
-    write_dataset(brats_root, train_ids, train_records)
-    write_dataset(brats_root, test_ids, test_records)
-    write_dataset(brats_root, validation_ids, validation_records)
+    write_dataset(brats, train_ids, train_records_dir)
+    write_dataset(brats, test_ids, test_records_dir)
+    write_dataset(brats, validation_ids, validation_records_dir)
 
 
 def parse_args():
@@ -108,13 +97,14 @@ def parse_args():
 
     :return: An argparse object containing parsed arguments
     """
-
-    parser = argparse.ArgumentParser(description="Train tumor segmentation model",
+    parser = argparse.ArgumentParser(description="Convert a BraTS Dataset",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     io_options_group = parser.add_argument_group("I/O")
     io_options_group.add_argument('--brats', help="BraTS root dataset directory")
-    io_options_group.add_argument('--output', help="Output directoyr of dataset")
+    io_options_group.add_argument('--output', help="Output directoy of dataset")
+    io_options_group.add_argument('--partition-dir', default=default_partition_store, help="Directory of partitions")
+    io_options_group.add_argument('--year', type=int, default=default_brats_year, help="BraTS year")
 
     sets_options_group = parser.add_argument_group("Data set")
     sets_options_group.add_argument("--test", type=int, default=40, help="Size of training set")
@@ -181,9 +171,12 @@ def main():
     logger.debug("Number of test examples: %d" % args.test)
     logger.info("Number of validation examples: %d" % args.validation)
 
-    transform_brats(brats_root, output_dir,
-                    num_test=args.test,
-                    num_validation=args.validation)
+    train_ids = get_training_ids(args.partition_dir)
+    test_ids = get_test_ids(args.partition_dir)
+    validation_ids = get_validation_ids(args.partition_dir)
+
+    transform_brats(brats_root, output_dir, args.year,
+                    train_ids, test_ids, validation_ids)
 
 
 if __name__ == "__main__":

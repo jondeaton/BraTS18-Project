@@ -22,7 +22,7 @@ from tensorflow.python.lib.io import file_io
 import io
 
 import BraTS
-from segmentation.BraTS_partitions import train_Dataset, test_DataSet, validation_Dataset
+from segmentation.partitioning import train_Dataset, test_DataSet, validation_Dataset
 
 
 # Global Variables

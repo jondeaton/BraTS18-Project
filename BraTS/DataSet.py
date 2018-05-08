@@ -17,22 +17,6 @@ import nibabel as nib
 from BraTS.Patient import *
 from BraTS.load_utils import *
 
-# The root directory of all the BraTS data-sets
-_brats_root_dir = None
-
-
-def set_root(new_brats_root):
-    """
-    Set the root directory containing multiple BraTS datasets
-
-    :param new_brats_root: The new path to the root directory
-    :return: None
-    """
-    assert isinstance(new_brats_root, str)
-    global _brats_root_dir
-    _brats_root_dir = new_brats_root
-
-
 survival_df_cache = {}  # Prevents loading CSVs more than once
 
 
@@ -166,18 +150,25 @@ class DataSubSet:
 
 
 class DataSet(object):
-    def __init__(self, root=None, year=None):
-        if root is not None:
-            self._root = root
 
-        elif year is not None:
-            if _brats_root_dir is None:
-                raise Exception("Must set_root before using year argument")
+    def __init__(self, data_set_dir=None, brats_root=None, year=None):
 
-            year_dir = find_file_containing(_brats_root_dir, str(year % 100))
-            self._root = os.path.join(_brats_root_dir, year_dir)
+        if data_set_dir is not None:
+            # The data-set directory was specified explicitly
+            assert isinstance(data_set_dir, str)
+            self._data_set_dir = data_set_dir
+
+        elif brats_root is not None and isinstance(year, int):
+            # Find the directory by specifying the year
+            assert isinstance(brats_root, str)
+            year_dir = find_file_containing(brats_root, str(year % 100))
+            self.data_set_dir = os.path.join(brats_root, year_dir)
+            self._brats_root = brats_root
+            self._year = year
+
         else:
-            raise Exception("Pass root or year optional argument")
+            # BraTS data-set location was not improperly specified
+            raise Exception("Specify BraTS location with \"data_set_dir\" or with \"brats_root\" and \"year\"")
 
         self._validation = None
         self._train = None
@@ -268,18 +259,18 @@ class DataSet(object):
     def _train_dir(self):
         if self._train_dir_cached is not None:
             return self._train_dir_cached
-        self._train_dir_cached = find_file_containing(self._root, "training")
+        self._train_dir_cached = find_file_containing(self.data_set_dir, "training")
         if self._train_dir_cached is None:
-            raise Exception("Could not find training directory in %s" % self._root)
+            raise Exception("Could not find training directory in %s" % self.data_set_dir)
         return self._train_dir_cached
 
     @property
     def _validation_dir(self):
         if self._val_dir is not None:
             return self._val_dir
-        self._val_dir = find_file_containing(self._root, "validation")
+        self._val_dir = find_file_containing(self.data_set_dir, "validation")
         if self._val_dir is None:
-            raise Exception("Could not find validation directory in %s" % self._root)
+            raise Exception("Could not find validation directory in %s" % self.data_set_dir)
         return self._val_dir
 
     @property

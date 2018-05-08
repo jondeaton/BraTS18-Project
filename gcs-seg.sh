@@ -10,7 +10,7 @@ timestamp=`date +%s`
 project_id=`gcloud config list project --format "value(core.project)"`
 
 job_name=$proj_name"_job_$timestamp"
-bucket_name="jons-gcs-123345454"
+bucket_name="brats-20x"
 cloud_config="$dir/cloudml-gpu.yaml"
 job_dir="gs://$bucket_name/test-model"  # where to save
 module="$dir.train"

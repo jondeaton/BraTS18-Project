@@ -54,12 +54,13 @@ def load_patient_data(patient_data_dir,
 
 class Patient:
 
-    def __init__(self, id, age=None, survival=None, mri=None, seg=None):
+    def __init__(self, id, age=None, survival=None, mri=None, seg=None, dir=None):
         self.id = id
         self.age = age
         self.survival = survival
         self.mri = mri
         self.seg = seg
+        self.dir = dir
 
     @property
     def flair(self):

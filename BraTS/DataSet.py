@@ -121,6 +121,7 @@ class DataSubSet:
             return self._patients[patient_id]
 
         patient = Patient(patient_id)
+        patient.dir = self._dir_map[patient_id]
 
         df = self._survival_df
         if patient_id in df.id.values:
@@ -134,8 +135,7 @@ class DataSubSet:
             patient.seg = self._segs[index]
         else:
             # Load the mri and segmentation data from disk
-            patient_dir = self._dir_map[patient_id]
-            patient.mri, patient.seg = load_patient_data(patient_dir)
+            patient.mri, patient.seg = load_patient_data(patient.dir)
 
         self._patients[patient_id] = patient  # cache the value for later
         return patient

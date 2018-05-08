@@ -13,10 +13,7 @@ accuracy of segmentation. We propose using capsule networks to perform segmentat
 tumors in MR images.
 
 
-
-
 #### BraTS Data Loader
-
 
 In order to use the data loader make sure that your BraTS dataset directory is configured as shown:
 
@@ -35,25 +32,33 @@ In order to use the data loader make sure that your BraTS dataset directory is c
  
      import BraTS
  
- and configure it to find the BraTS data sets on your system by passing the path to the top level directory with the `set_root` function:
+ and configure it to find the BraTS data sets on your system by passing the top level directroy plus year
  
-     BraTS.set_root("BraTS")
+     brats = BraTS.DataSet(brats_root="/path/to/BraTS", year=2017)
  
- To access the data, first select a data-set by year
+ or explicitly providing a path to a BraTS directory
  
-     brats = BraTS.DataSet(year=2018)
+    brats = BraTS.DataSet(data_set_dir="/path/to/BraTS/BraTS17")
  
- and then access it's data members through `train`, `validation`, `hgg` and `lgg` members
+Then, you can access it's data members through `train`, `validation`, `hgg` and `lgg` members
+ 
+    # Access data patient-wise
+    patient = brats.train.patient("Brats18_2013_7_1")   # Loads only a single patient (quick)
+    
+    # Or load in all patients
+    patients = brats.train.patients # Loads all patients into a map (very slow)
+    patient = patients["Brats18_2013_7_1"]  # Then you can access 
+    
+    # Access to all the patient IDs
+    patient_ids = brats.train.ids
  
     mris = brats.train.mris  # (m, 4, 240, 240, 155) numpy array of all MRI images
     segs = brats.train.segs  # (m, 240, 240, 255) numpy array of segmentation maps
     
-    # Access data patient-wise
-    patient = brats.train.patient("Brats18_2013_7_1")
-    patients = brats.train.patients["Brats18_2013_7_1"]
-    
-    # Access to all the patient IDs
-    patient_ids = brats.train.ids
-    
- Be aware that it takes a few minutes to load the full data-set into memory.
+    # Access validation data like this
+    validation_mris = brats.validation.mris
+    validation_segs = brats.validation.segs
+     
+ Be aware that it takes a few minutes to load the full data-set into memory. If you want to load
+ in only single patients at a time, then use the `brats.train.patient` interface.
  

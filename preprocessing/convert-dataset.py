@@ -86,21 +86,16 @@ def parse_args():
 
     :return: An argparse object containing parsed arguments
     """
-    parser = argparse.ArgumentParser(description="Convert a BraTS Dataset",
+    parser = argparse.ArgumentParser(description="Convert a BraTS Data-set",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     io_options_group = parser.add_argument_group("I/O")
     io_options_group.add_argument('--brats', help="BraTS root dataset directory")
-    io_options_group.add_argument('--output', help="Output directoy of dataset")
-    io_options_group.add_argument('--partition-dir', default=default_partition_store, help="Directory of partitions")
     io_options_group.add_argument('--year', type=int, default=default_brats_year, help="BraTS year")
-
-    sets_options_group = parser.add_argument_group("Data set")
-    sets_options_group.add_argument("--test", type=int, default=40, help="Size of training set")
-    sets_options_group.add_argument("--validation", type=int, default=40, help="Size of validation set")
+    io_options_group.add_argument('--output', help="Output directory of dataset")
 
     general_options_group = parser.add_argument_group("General")
-    general_options_group.add_argument("--pool-size", type=int, default=8, help="Size of worker pool")
+    general_options_group.add_argument("--pool-size", type=int, default=8, help="Size of worker process pool")
 
     logging_options_group = parser.add_argument_group("Logging")
     logging_options_group.add_argument('--log', dest="log_level", default="WARNING", help="Logging level")

@@ -152,9 +152,6 @@ def main():
     else:
         logger.debug("Output directory: %s" % output_dir)
 
-    logger.debug("Number of test examples: %d" % args.test)
-    logger.info("Number of validation examples: %d" % args.validation)
-
     brats = BraTS.DataSet(brats_root=brats_root, year=args.year)
     transform_brats(brats_root, args.year, output_dir, brats.train.ids)
 

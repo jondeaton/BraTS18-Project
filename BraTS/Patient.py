@@ -60,7 +60,6 @@ class Patient:
         self.survival = survival
         self.mri = mri
         self.seg = seg
-        self.dir = dir
 
     @property
     def flair(self):

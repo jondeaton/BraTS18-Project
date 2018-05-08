@@ -2,25 +2,37 @@
 """
 File: convert-dataset
 Date: 5/5/18
-Author: Jon Deaton (jdeaton@stanford.edu)
 
 ----------------------------------------
 
 Tools for converting, normalizing, and fixing the brats data.
 """
 
-
 import glob
 import os
 import warnings
 import shutil
 
-import SimpleITK as sitk
+
+import SimpleITK as sitk  # If you can't import this then run "conda install -c simpleitk simpleitk"
 import numpy as np
 from nipype.interfaces.ants import N4BiasFieldCorrection
 
-from brats.train import config
 
+config = dict()
+config["pool_size"] = (2, 2, 2)  # pool size for the max pooling operations
+config["image_shape"] = (144, 144, 144)  # This determines what shape the images will be cropped/resampled to.
+config["patch_shape"] = (64, 64, 64)  # switch to None to train on the whole image
+config["labels"] = (1, 2, 4)  # the label numbers on the input image
+config["n_labels"] = len(config["labels"])
+config["all_modalities"] = ["t1", "t1Gd", "flair", "t2"]
+config["training_modalities"] = config["all_modalities"]  # change this if you want to only use some of the modalities
+config["nb_channels"] = len(config["training_modalities"])
+if "patch_shape" in config and config["patch_shape"] is not None:
+    config["input_shape"] = tuple([config["nb_channels"]] + list(config["patch_shape"]))
+else:
+    config["input_shape"] = tuple([config["nb_channels"]] + list(config["image_shape"]))
+config["truth_channel"] = config["nb_channels"]
 
 def append_basename(in_file, append):
     dirname, basename = os.path.split(in_file)

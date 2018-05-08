@@ -16,17 +16,19 @@ import nibabel as nib
 
 from BraTS.Patient import *
 from BraTS.load_utils import *
+from BraTS.structure import *
 
 survival_df_cache = {}  # Prevents loading CSVs more than once
 
 
 class DataSubSet:
 
-    def __init__(self, dir_map, survival_csv):
-        self._dir_map = dir_map
-        self._patient_ids = sorted(list(dir_map.keys()))
+    def __init__(self, directory_map, survival_csv, data_set_type=None):
+        self.directory_map = directory_map
+        self._patient_ids = sorted(list(directory_map.keys()))
         self._survival_csv = survival_csv
         self._num_patients = len(self._patient_ids)
+        self.type = data_set_type
 
         # Data caches
         self._mris = None
@@ -43,7 +45,7 @@ class DataSubSet:
         :param n: The number of elements in the smaller training set
         :return: A new data subset with only the specified number of items
         """
-        dir_map = {id: self._dir_map[id] for id in patient_ids}
+        dir_map = {id: self.directory_map[id] for id in patient_ids}
         return DataSubSet(dir_map, self._survival_csv)
 
     @property
@@ -77,7 +79,6 @@ class DataSubSet:
         self._mris = np.empty(shape=mris_shape)
         self._segs = np.empty(shape=segs_shape)
 
-
         if self._patients_fully_loaded:
             # All the patients were already loaded
             for i, patient in enumerate(self._patients.values()):
@@ -86,7 +87,7 @@ class DataSubSet:
         else:
             # Load it from scratch
             for i, patient_id in enumerate(self._patient_ids):
-                patient_dir = self._dir_map[patient_id]
+                patient_dir = self.directory_map[patient_id]
                 load_patient_data(patient_dir, mri_array=self._mris, seg_array=self._segs, index=i)
 
     @property
@@ -121,7 +122,7 @@ class DataSubSet:
             return self._patients[patient_id]
 
         patient = Patient(patient_id)
-        patient.dir = self._dir_map[patient_id]
+        patient_dir = self.directory_map[patient_id]
 
         df = self._survival_df
         if patient_id in df.id.values:
@@ -135,7 +136,7 @@ class DataSubSet:
             patient.seg = self._segs[index]
         else:
             # Load the mri and segmentation data from disk
-            patient.mri, patient.seg = load_patient_data(patient.dir)
+            patient.mri, patient.seg = load_patient_data(patient_dir)
 
         self._patients[patient_id] = patient  # cache the value for later
         return patient
@@ -203,7 +204,8 @@ class DataSet(object):
         :return: A tf.data.Dataset object containing the training data
         """
         if self._train is None:
-            self._train = DataSubSet(self._train_dir_map, self._train_survival_csv)
+            self._train = DataSubSet(self._train_dir_map, self._train_survival_csv,
+                                     data_set_type=DataSubsetType.train)
         return self._train
 
     @property
@@ -214,19 +216,20 @@ class DataSet(object):
         :return: Validation data
         """
         if self._validation is None:
-            self._validation = DataSubSet(self._validation_dir_map, self._validation_survival_csv)
+            self._validation = DataSubSet(self._validation_dir_map, self._validation_survival_csv,
+                                          data_set_type=DataSubsetType.validation)
         return self._validation
 
     @property
     def hgg(self):
         if self._hgg is None:
-            self._hgg = DataSubSet(self._hgg_dir_map, self._train_survival_csv)
+            self._hgg = DataSubSet(self._hgg_dir_map, self._train_survival_csv, data_set_type=DataSubsetType.hgg)
         return self._hgg
 
     @property
     def lgg(self):
         if self._lgg is None:
-            self._lgg = DataSubSet(self._lgg_dir_map, self._train_survival_csv)
+            self._lgg = DataSubSet(self._lgg_dir_map, self._train_survival_csv, data_set_type=DataSubsetType.lgg)
         return self._lgg
 
     def drop_cache(self):
@@ -234,10 +237,25 @@ class DataSet(object):
         Drops the cached values in the object
         :return: None
         """
-        self._train = None
-        self._dev = None
         self._validation = None
-        self._survival_df = None
+        self._train = None
+        self._hgg = False
+        self._lgg = False
+
+        self._dir_map_cache = None
+        self._val_dir = None
+        self._train_dir_cached = None
+        self._train_survival_csv_cached = None
+        self._validation_survival_csv_cached = None
+
+        self._train_ids = None
+        self._hgg_ids_cached = None
+        self._lgg_ids_cached = None
+
+        self._train_dir_map_cache = None
+        self._validation_dir_map_cache = None
+        self._hgg_dir_map_cache = None
+        self._lgg_dir_map_cache = None
 
     @property
     def _train_survival_csv(self):

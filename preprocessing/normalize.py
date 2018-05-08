@@ -5,24 +5,44 @@ Date: 5/8/18
 Author: Jon Deaton (jdeaton@stanford.edu)
 """
 
+import sys
 import argparse
 import logging
+import multiprocessing as mp
 
 import BraTS
+from BraTS.structure import *
 from preprocessing.normalization import *
 
-def setup_output (output_directory):
-    assert isinstance(output_directory, str)
-
-    train_corrected = os.path.join(output_directory, "training")
-    validation_corrected = os.path.join(output_directory, "validation")
-    
+logger = logging.getLogger('root')
 
 
-def normalize_brats(brats_root, year):
-
+def normalize_brats (brats_root, year, output_directory):
     brats = BraTS.DataSet(brats_root=brats_root, year=year)
 
+    train_corrected = get_brats_subset_directory(output_directory, DataSubsetType.train)
+    hgg_corrected = get_brats_subset_directory(output_directory, DataSubsetType.hgg)
+    lgg_corrected = get_brats_subset_directory(output_directory, DataSubsetType.lgg)
+    validation_corrected = get_brats_subset_directory(output_directory, DataSubsetType.validation)
+
+    # Make the directories
+    for directory in (train_corrected, hgg_corrected, lgg_corrected, validation_corrected):
+        try:
+            os.mkdir(directory)
+        except FileExistsError:
+            logger.debug("Directory exists: %s" % directory)
+
+    def patient_generator(id_set):
+        for patient_id in id_set:
+            yield brats.train.patient(patient_id)
+
+    # Convert each of
+    patient_sets = (brats.hgg, brats.lgg, brats.validation)
+    for patient_set in (brats.hgg, brats.lgg, brats.validation):
+        for patient in patient_generator(patient_set.ids):
+            original_dir = brats.train.directory_map(patient.id)
+            new_dir = os.path.join(get_brats_subset_directory(output_directory, patient_set.type), patient.id)
+            convert_brats_folder (original_dir, new_dir)
 
 
 
@@ -100,12 +120,7 @@ def main():
             logger.debug("Output directory exists.")
     else:
         logger.debug("Output directory: %s" % output_dir)
-
-    logger.debug("Number of test examples: %d" % args.test)
-    logger.info("Number of validation examples: %d" % args.validation)
-
-    brats = BraTS.DataSet(brats_root=brats_root, year=args.year)
-    transform_brats(brats_root, args.year, output_dir, brats.train.ids)
+    normalize_brats(brats_root, args.year, output_dir)
 
 
 if __name__ == "__main__":

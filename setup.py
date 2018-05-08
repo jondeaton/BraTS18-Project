@@ -13,6 +13,7 @@ setup(name='BraTS',
           "matplotlib",
           "pandas",
           "nibabel",    # Neuro-Imaging file format library
-          "nipype"      # More neuro-imaging libraries
+          "nipype",     # More neuro-imaging libraries
+          "SimpleITK"   # For normalizing the data
       ],
       zip_safe=False)

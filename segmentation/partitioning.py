@@ -17,7 +17,7 @@ import os
 import tensorflow as tf
 
 import BraTS
-from BraTS.image_types import mri_shape, image_shape
+from BraTS.modalities import mri_shape, image_shape
 
 from random import shuffle
 

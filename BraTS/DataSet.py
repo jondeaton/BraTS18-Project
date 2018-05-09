@@ -15,8 +15,9 @@ import numpy as np
 import nibabel as nib
 
 from BraTS.Patient import *
-from BraTS.load_utils import *
 from BraTS.structure import *
+from BraTS.modalities import *
+from BraTS.load_utils import *
 
 survival_df_cache = {}  # Prevents loading CSVs more than once
 
@@ -67,14 +68,13 @@ class DataSubSet:
 
     @property
     def segs(self):
-        if self._segs is not None:
-            return self._segs
-        self._load_images()
+        if self._segs is None:
+            self._load_images()
         return self._segs
 
     def _load_images(self):
         mris_shape = (self._num_patients,) + mri_shape
-        segs_shape = (self._num_patients,) + img_shape
+        segs_shape = (self._num_patients,) + image_shape
 
         self._mris = np.empty(shape=mris_shape)
         self._segs = np.empty(shape=segs_shape)
@@ -97,7 +97,6 @@ class DataSubSet:
 
         :return: A dictionary containing ALL patients
         """
-
         if not self._patients_fully_loaded:
             # Construct the patients dictionary
             self._patients = {}
@@ -113,7 +112,6 @@ class DataSubSet:
         :param patient_id: The patient ID
         :return: A Patient object loaded from disk
         """
-
         if patient_id not in self._patient_ids:
             raise ValueError("Patient id \"%s\" not present." % patient_id)
 
@@ -163,7 +161,7 @@ class DataSet(object):
             # Find the directory by specifying the year
             assert isinstance(brats_root, str)
             year_dir = find_file_containing(brats_root, str(year % 100))
-            self.data_set_dir = os.path.join(brats_root, year_dir)
+            self._data_set_dir = os.path.join(brats_root, year_dir)
             self._brats_root = brats_root
             self._year = year
 
@@ -173,8 +171,8 @@ class DataSet(object):
 
         self._validation = None
         self._train = None
-        self._hgg = False
-        self._lgg = False
+        self._hgg = None
+        self._lgg = None
 
         self._dir_map_cache = None
 
@@ -195,6 +193,23 @@ class DataSet(object):
         self._hgg_dir_map_cache = None
         self._lgg_dir_map_cache = None
 
+    def set(self, data_set_type):
+        """
+        Get a data subset by type
+
+        :param data_set_type: The DataSubsetType to get
+        :return: The data sub-set of interest
+        """
+        assert isinstance(data_set_type, DataSubsetType)
+        if data_set_type == DataSubsetType.train:
+            return self.train
+        if data_set_type == DataSubsetType.hgg:
+            return self.hgg
+        if data_set_type == DataSubsetType.lgg:
+            return self.lgg
+        if data_set_type == DataSubsetType.validation:
+            return self.validation
+
     @property
     def train(self):
         """
@@ -204,8 +219,12 @@ class DataSet(object):
         :return: A tf.data.Dataset object containing the training data
         """
         if self._train is None:
-            self._train = DataSubSet(self._train_dir_map, self._train_survival_csv,
-                                     data_set_type=DataSubsetType.train)
+            try:
+                self._train = DataSubSet(self._train_dir_map,
+                                         self._train_survival_csv,
+                                         data_set_type=DataSubsetType.train)
+            except FileNotFoundError:
+                return None
         return self._train
 
     @property
@@ -216,20 +235,34 @@ class DataSet(object):
         :return: Validation data
         """
         if self._validation is None:
-            self._validation = DataSubSet(self._validation_dir_map, self._validation_survival_csv,
-                                          data_set_type=DataSubsetType.validation)
+            try:
+                self._validation = DataSubSet(self._validation_dir_map,
+                                              self._validation_survival_csv,
+                                              data_set_type=DataSubsetType.validation)
+            except FileNotFoundError:
+                return None
         return self._validation
 
     @property
     def hgg(self):
         if self._hgg is None:
-            self._hgg = DataSubSet(self._hgg_dir_map, self._train_survival_csv, data_set_type=DataSubsetType.hgg)
+            try:
+                self._hgg = DataSubSet(self._hgg_dir_map,
+                                       self._train_survival_csv,
+                                       data_set_type=DataSubsetType.hgg)
+            except FileNotFoundError:
+                return None
         return self._hgg
 
     @property
     def lgg(self):
         if self._lgg is None:
-            self._lgg = DataSubSet(self._lgg_dir_map, self._train_survival_csv, data_set_type=DataSubsetType.lgg)
+            try:
+                self._lgg = DataSubSet(self._lgg_dir_map,
+                                       self._train_survival_csv,
+                                       data_set_type=DataSubsetType.lgg)
+            except FileNotFoundError:
+                return None
         return self._lgg
 
     def drop_cache(self):
@@ -239,8 +272,8 @@ class DataSet(object):
         """
         self._validation = None
         self._train = None
-        self._hgg = False
-        self._lgg = False
+        self._hgg = None
+        self._lgg = None
 
         self._dir_map_cache = None
         self._val_dir = None
@@ -262,7 +295,7 @@ class DataSet(object):
         if self._train_survival_csv_cached is None:
             self._train_survival_csv_cached = find_file_containing(self._train_dir, "survival")
             if self._train_survival_csv_cached is None:
-                raise Exception("Could not find survival CSV in %s" % self._train_dir)
+                raise FileNotFoundError("Could not find survival CSV in %s" % self._train_dir)
         return self._train_survival_csv_cached
 
     @property
@@ -270,25 +303,25 @@ class DataSet(object):
         if self._validation_survival_csv_cached is None:
             self._validation_survival_csv_cached = find_file_containing(self._validation_dir, "survival")
             if self._validation_survival_csv_cached is None:
-                raise Exception("Could not find survival CSV in %s" % self._validation_dir)
+                raise FileNotFoundError("Could not find survival CSV in %s" % self._validation_dir)
         return self._validation_survival_csv_cached
 
     @property
     def _train_dir(self):
         if self._train_dir_cached is not None:
             return self._train_dir_cached
-        self._train_dir_cached = find_file_containing(self.data_set_dir, "training")
+        self._train_dir_cached = find_file_containing(self._data_set_dir, "training")
         if self._train_dir_cached is None:
-            raise Exception("Could not find training directory in %s" % self.data_set_dir)
+            raise FileNotFoundError("Could not find training directory in %s" % self._data_set_dir)
         return self._train_dir_cached
 
     @property
     def _validation_dir(self):
         if self._val_dir is not None:
             return self._val_dir
-        self._val_dir = find_file_containing(self.data_set_dir, "validation")
+        self._val_dir = find_file_containing(self._data_set_dir, "validation")
         if self._val_dir is None:
-            raise Exception("Could not find validation directory in %s" % self.data_set_dir)
+            raise FileNotFoundError("Could not find validation directory in %s" % self._data_set_dir)
         return self._val_dir
 
     @property
@@ -330,6 +363,6 @@ class DataSet(object):
 
     @classmethod
     def _directory_map(cls, dir):
-        return { file: os.path.join(dir, file)
+        return {file: os.path.join(dir, file)
                  for file in os.listdir(dir)
-                 if os.path.isdir(os.path.join(dir, file)) }
+                 if os.path.isdir(os.path.join(dir, file))}

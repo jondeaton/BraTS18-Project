@@ -13,46 +13,29 @@ import os
 import warnings
 import shutil
 
-
-import SimpleITK as sitk  # If you can't import this then run "conda install -c simpleitk simpleitk"
 import numpy as np
+import SimpleITK as sitk  # If you can't import this then run "conda install -c simpleitk simpleitk"
 from nipype.interfaces.ants import N4BiasFieldCorrection
 
-
-config = dict()
-config["pool_size"] = (2, 2, 2)  # pool size for the max pooling operations
-config["image_shape"] = (144, 144, 144)  # This determines what shape the images will be cropped/resampled to.
-config["patch_shape"] = (64, 64, 64)  # switch to None to train on the whole image
-config["labels"] = (1, 2, 4)  # the label numbers on the input image
-config["n_labels"] = len(config["labels"])
-config["all_modalities"] = ["t1", "t1Gd", "flair", "t2"]
-config["training_modalities"] = config["all_modalities"]  # change this if you want to only use some of the modalities
-config["nb_channels"] = len(config["training_modalities"])
-if "patch_shape" in config and config["patch_shape"] is not None:
-    config["input_shape"] = tuple([config["nb_channels"]] + list(config["patch_shape"]))
-else:
-    config["input_shape"] = tuple([config["nb_channels"]] + list(config["image_shape"]))
-config["truth_channel"] = config["nb_channels"]
-
-def append_basename(in_file, append):
-    dirname, basename = os.path.split(in_file)
-    base, ext = basename.split(".", 1)
-    return os.path.join(dirname, base + append + "." + ext)
+from BraTS.modalities import Modality, get_modality_map, modalities, modality_names
 
 
-def get_background_mask(in_folder, out_file, truth_name="GlistrBoost_ManuallyCorrected"):
+def get_background_mask(input_dir, out_file):
     """
     This function computes a common background mask for all of the data in a subject folder.
-    :param in_folder: a subject folder from the BRATS dataset.
+    :param input_dir: a subject folder from the BRATS dataset.
     :param out_file: an image containing a mask that is 1 where the image data for that subject contains the background.
     :param truth_name: how the truth file is labeled int he subject folder
     :return: the path to the out_file
     """
     background_image = None
-    for name in config["all_modalities"] + [truth_name]:
-        image = sitk.ReadImage(get_image(in_folder, name))
+
+    modality_map = get_modality_map(input_dir)
+    for modality in modalities:
+        image_file = modality_map[modalities]
+        image = sitk.ReadImage(image_file)
         if background_image:
-            if name == truth_name and not (image.GetOrigin() == background_image.GetOrigin()):
+            if modality == Modality.seg:
                 image.SetOrigin(background_image.GetOrigin())
             background_image = sitk.And(image == 0, background_image)
         else:
@@ -69,15 +52,18 @@ def convert_image_format(in_file, out_file):
 def window_intensities(in_file, out_file, min_percent=1, max_percent=99):
     image = sitk.ReadImage(in_file)
     image_data = sitk.GetArrayFromImage(image)
-    out_image = sitk.IntensityWindowing(image, np.percentile(image_data, min_percent), np.percentile(image_data,
-                                                                                                     max_percent))
+    out_image = sitk.IntensityWindowing(image,
+                                        np.percentile(image_data, min_percent),
+                                        np.percentile(image_data, max_percent))
     sitk.WriteImage(out_image, out_file)
     return os.path.abspath(out_file)
 
 
 def correct_bias(in_file, out_file):
     """
-    Corrects the bias using ANTs N4BiasFieldCorrection. If this fails, will then attempt to correct bias using SimpleITK
+    Corrects the bias using ANTs N4BiasFieldCorrection.
+
+    If this fails, will then attempt to correct bias using SimpleITK
     :param in_file: input file path
     :param out_file: output file path
     :return: file path to the bias corrected image
@@ -104,71 +90,36 @@ def rescale(in_file, out_file, minimum=0, maximum=20000):
     return os.path.abspath(out_file)
 
 
-def get_image(subject_folder, name):
-    file_card = os.path.join(subject_folder, "*" + name + ".nii.gz")
-    try:
-        return glob.glob(file_card)[0]
-    except IndexError:
-        raise RuntimeError("Could not find file matching {}".format(file_card))
-
-
 def background_to_zero(in_file, background_file, out_file):
     sitk.WriteImage(sitk.Mask(sitk.ReadImage(in_file), sitk.ReadImage(background_file, sitk.sitkUInt8) == 0),
                     out_file)
     return out_file
 
 
-def check_origin(in_file, in_file2):
-    image = sitk.ReadImage(in_file)
-    image2 = sitk.ReadImage(in_file2)
-    if not image.GetOrigin() == image2.GetOrigin():
-        image.SetOrigin(image2.GetOrigin())
-        sitk.WriteImage(image, in_file)
+def get_output_filename(output_dir, modality):
+    return os.path.join(output_dir, "%s.nii.gz" % modality_names[modality])
 
 
-def normalize_image(in_file, out_file, bias_correction=True):
-    if bias_correction:
-        correct_bias(in_file, out_file)
-    else:
-        shutil.copy(in_file, out_file)
-    return out_file
-
-
-def convert_brats_folder(in_folder, out_folder, truth_name="GlistrBoost_ManuallyCorrected",
-                         no_bias_correction_modalities=None):
-    for name in config["all_modalities"]:
-        image_file = get_image(in_folder, name)
-        out_file = os.path.abspath(os.path.join(out_folder, name + ".nii.gz"))
-        perform_bias_correction = no_bias_correction_modalities and name not in no_bias_correction_modalities
-        normalize_image(image_file, out_file, bias_correction=perform_bias_correction)
-    # copy the truth file
-    try:
-        truth_file = get_image(in_folder, truth_name)
-    except RuntimeError:
-        truth_file = get_image(in_folder, truth_name.split("_")[0])
-    out_file = os.path.abspath(os.path.join(out_folder, "truth.nii.gz"))
-    shutil.copy(truth_file, out_file)
-    check_origin(out_file, get_image(in_folder, config["all_modalities"][0]))
-
-
-def convert_brats_data(brats_folder, out_folder, overwrite=False, no_bias_correction_modalities=("flair",)):
+def normalize_patient_images(patient_dir, output_patient_dir):
     """
-    Preprocesses the BRATS data and writes it to a given output folder. Assumes the original folder structure.
-    :param brats_folder: folder containing the original brats data
-    :param out_folder: output folder to which the preprocessed data will be written
-    :param overwrite: set to True in order to redo all the preprocessing
-    :param no_bias_correction_modalities: performing bias correction could reduce the signal of certain modalities. If
-    concerned about a reduction in signal for a specific modality, specify by including the given modality in a list
-    or tuple.
-    :return:
+    Corrects the bias for the images in a single patient directory
+
+    :param patient_dir: The patient directory
+    :param output_patient_dir: Output directory to store corrected images
+    :return: None
     """
-    for subject_folder in glob.glob(os.path.join(brats_folder, "*", "*")):
-        if os.path.isdir(subject_folder):
-            subject = os.path.basename(subject_folder)
-            new_subject_folder = os.path.join(out_folder, os.path.basename(os.path.dirname(subject_folder)),
-                                              subject)
-            if not os.path.exists(new_subject_folder) or overwrite:
-                if not os.path.exists(new_subject_folder):
-                    os.makedirs(new_subject_folder)
-                convert_brats_folder(subject_folder, new_subject_folder,
-                                     no_bias_correction_modalities=no_bias_correction_modalities)
+    modality_map = get_modality_map(patient_dir)
+    for modality in modalities:
+
+        if modality == Modality.seg:
+            continue  # don't normalize the segmentation
+
+        image_file = modality_map[modality]
+        out_file = get_output_filename (output_patient_dir, modality)
+        correct_bias(image_file, out_file)
+
+    seg_file = modality_map[Modality.seg]
+    truth_file = get_output_filename(output_patient_dir, Modality.seg)
+    shutil.copy(seg_file, truth_file)
+
+

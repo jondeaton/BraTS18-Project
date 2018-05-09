@@ -15,13 +15,10 @@ import numpy as np
 # need to set up the BraTS data-sets in some directory and set that path here
 brats_root = "/Users/jonpdeaton/Datasets/BraTS"
 
-BraTS.set_root(brats_root)
-
-
 class BraTSTest(unittest.TestCase):
 
     def test_patient(self):
-        brats = BraTS.DataSet(year=2017)
+        brats = BraTS.DataSet(brats_root=brats_root, year=2017)
         patient = brats.train.patient("Brats17_TCIA_167_1")
 
         self.assertIsInstance(patient.id, str)

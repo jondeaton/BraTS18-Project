@@ -7,17 +7,19 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 
 import sys
 import argparse
-import logging
 import multiprocessing as mp
 
 import BraTS
 from BraTS.structure import *
-from preprocessing.normalization import *
+from preprocessing.normalization import normalize_patient_images
 
-logger = logging.getLogger('root')
+import logging
 
 
-def normalize_brats (brats_root, year, output_directory):
+pool_size = 8
+logger = None
+
+def normalize_brats(brats_root, year, output_directory):
     brats = BraTS.DataSet(brats_root=brats_root, year=year)
 
     train_corrected = get_brats_subset_directory(output_directory, DataSubsetType.train)
@@ -32,18 +34,34 @@ def normalize_brats (brats_root, year, output_directory):
         except FileExistsError:
             logger.debug("Directory exists: %s" % directory)
 
-    def patient_generator(id_set):
-        for patient_id in id_set:
-            yield brats.train.patient(patient_id)
+    pool = mp.Pool(pool_size)
 
-    # Convert each of
-    patient_sets = (brats.hgg, brats.lgg, brats.validation)
+    # Convert each of the sets
     for patient_set in (brats.hgg, brats.lgg, brats.validation):
-        for patient in patient_generator(patient_set.ids):
-            original_dir = brats.train.directory_map(patient.id)
-            new_dir = os.path.join(get_brats_subset_directory(output_directory, patient_set.type), patient.id)
-            convert_brats_folder (original_dir, new_dir)
+        if patient_set is None:
+            continue  # Missing data set (e.g. validation is not present)
 
+        logger.info("Processing set: %s" % patient_set.type)
+
+        # Make a list of original-dir -> new-dir outputs
+        arg_list = []
+        for patient_id in patient_set.ids:
+            original_dir = brats.train.directory_map[patient_id]
+            new_dir = os.path.join(get_brats_subset_directory(output_directory, patient_set.type), patient_id)
+            arg_list.append((original_dir, new_dir, patient_id))
+
+        # Do the conversion in parallel
+        pool.map(convert_wrapper, arg_list)
+
+# For converting in parallel
+def convert_wrapper(args):
+    orig_dir, new_dir, patient_id = args
+    try:
+        os.mkdir(new_dir)
+    except FileExistsError:
+        pass
+    logger.debug("Processing: %s" % patient_id)
+    normalize_patient_images(*(orig_dir, new_dir))
 
 
 def parse_args():
@@ -52,23 +70,22 @@ def parse_args():
 
     :return: An argparse object containing parsed arguments
     """
-    parser = argparse.ArgumentParser(description="Pre-process BraTS dataset",
+    parser = argparse.ArgumentParser(description="Normalize the BraTS data set",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     input_options = parser.add_argument_group("Input")
-    input_options.add_argument('--brats', help="BraTS root dataset directory")
-    input_options.add_argument('--year', type=int, default=2018, help="BraTS year")
+    input_options.add_argument('--brats', required=True, help="BraTS root data set directory")
+    input_options.add_argument('--year', required=True, type=int, default=2018, help="BraTS year")
 
     output_options = parser.add_argument_group("Output")
-    output_options.add_argument('--output', help="Output directory of normalized data set")
-
+    output_options.add_argument('--output', required=True, help="Output directory of normalized data set")
 
     general_options_group = parser.add_argument_group("General")
     general_options_group.add_argument("--pool-size", type=int, default=8, help="Size of worker pool")
 
     logging_options_group = parser.add_argument_group("Logging")
     logging_options_group.add_argument('--log', dest="log_level", default="WARNING", help="Logging level")
-    logging_options_group.add_argument('--log-file', default="convert.log", help="Log file")
+    logging_options_group.add_argument('--log-file', default="normalize.log", help="Log file")
 
     args = parser.parse_args()
 
@@ -80,6 +97,7 @@ def parse_args():
     log_level = getattr(logging, args.log_level.upper())
     if not isinstance(log_level, int):
         raise ValueError('Invalid log level: %s' % args.log_level)
+    logger.setLevel(log_level)
 
     log_formatter = logging.Formatter('[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
 
@@ -92,9 +110,6 @@ def parse_args():
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(log_formatter)
     logger.addHandler(console_handler)
-
-    logger.setLevel(log_level)
-
     return args
 
 
@@ -120,6 +135,7 @@ def main():
             logger.debug("Output directory exists.")
     else:
         logger.debug("Output directory: %s" % output_dir)
+
     normalize_brats(brats_root, args.year, output_dir)
 
 

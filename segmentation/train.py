@@ -22,7 +22,6 @@ from tensorflow.python.lib.io import file_io
 import io
 
 import BraTS
-from segmentation.partitioning import train_Dataset, test_DataSet, validation_Dataset
 
 
 # Global Variables
@@ -33,6 +32,14 @@ num_epochs = None
 mini_batch_size = None
 
 logger = logging.getLogger()
+
+def load_datasets():
+
+    filenames = get_train_filename()
+    return tf.data.TFRecordDataset(filenames=filenames)
+
+
+
 
 def train(train_set, test_set):
     # todo!
@@ -127,7 +134,7 @@ def main():
 
     logger.info("Loading BraTS data-set...")
 
-    train_set, test_set, validation_set = load_dataset()
+    train_set, test_set, validation_set = load_datasets()
 
     logger.info("Data-set loaded.")
     train(train_set, test_set)

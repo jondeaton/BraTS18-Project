@@ -82,7 +82,7 @@ def main():
     logger.debug("BraTS root: %s" % brats_root)
 
     if not os.path.exists(output_dir):
-        logging.debug("Creating output directory: %s" % output_dir)
+        logger.debug("Creating output directory: %s" % output_dir)
         try:
             os.mkdir(output_dir)
         except FileExistsError:

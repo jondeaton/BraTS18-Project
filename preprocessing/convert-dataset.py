@@ -90,9 +90,9 @@ def parse_args():
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     io_options_group = parser.add_argument_group("I/O")
-    io_options_group.add_argument('--brats', help="BraTS root dataset directory")
-    io_options_group.add_argument('--year', type=int, default=default_brats_year, help="BraTS year")
-    io_options_group.add_argument('--output', help="Output directory of dataset")
+    io_options_group.add_argument('--brats', required=True, help="BraTS root dataset directory")
+    io_options_group.add_argument('--year', required=True, type=int, default=default_brats_year, help="BraTS year")
+    io_options_group.add_argument('--output', required=True, help="Output directory of dataset")
 
     general_options_group = parser.add_argument_group("General")
     general_options_group.add_argument("--pool-size", type=int, default=8, help="Size of worker process pool")

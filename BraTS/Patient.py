@@ -5,14 +5,11 @@ Date: 5/1/18
 Author: Jon Deaton (jdeaton@stanford.edu)
 """
 
-from BraTS.image_types import *
-
-img_shape = (240, 240, 155)
-mri_shape = (len(image_types),) + img_shape
 
 import numpy as np
 import nibabel as nib
 
+from BraTS.modalities import *
 from BraTS.load_utils import *
 
 
@@ -32,13 +29,13 @@ def load_patient_data(patient_data_dir,
 
     for img_file in listdir(patient_data_dir):
         img = nib.load(img_file).get_data()
-        img_type = get_image_type(img_file)
+        img_type = get_modality(img_file)
 
-        if img_type == ImageType.seg:
+        if img_type == Modality.seg:
             seg_data = img
             continue
 
-        channel_index = mri_indices[img_type]
+        channel_index = modality_indices[img_type]
 
         if load_inplace:
             mri_array[index, channel_index] = img

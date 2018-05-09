@@ -74,9 +74,11 @@ def get_training_ids(partitioning_dir):
     train_ids_file = os.path.join(partitioning_dir, train_ids_filename)
     return get_ids(train_ids_file)
 
+
 def get_test_ids(partitioning_dir):
     test_ids_file = os.path.join(partitioning_dir, test_ids_filename)
     return get_ids(test_ids_file)
+
 
 def get_validation_ids(partitioning_dir):
     validation_ids_file = os.path.join(partitioning_dir, validation_ids_filename)
@@ -87,4 +89,4 @@ def get_ids(ids_file):
     if not os.path.exists(ids_file):
         raise FileNotFoundError(ids_file)
     with open(ids_file, 'r') as f:
-        return set(f.readlines())
+        return set(f.read().split())

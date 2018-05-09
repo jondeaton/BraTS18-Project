@@ -17,8 +17,8 @@ import numpy as np
 import SimpleITK as sitk  # If you can't import this then run "conda install -c simpleitk simpleitk"
 from nipype.interfaces.ants import N4BiasFieldCorrection
 
-from BraTS.modalities import Modality, get_modality_map, modalities, modality_names
 
+from BraTS.modalities import Modality, get_modality_map, modalities, modality_names
 
 def get_background_mask(input_dir, out_file):
     """
@@ -73,7 +73,6 @@ def correct_bias(in_file, out_file):
     correct.inputs.output_image = out_file
     try:
         done = correct.run()
-        return done.outputs.output_image
     except IOError:
         warnings.warn(RuntimeWarning("ANTs N4BIasFieldCorrection could not be found."
                                      "Will try using SimpleITK for bias field correction"
@@ -81,7 +80,6 @@ def correct_bias(in_file, out_file):
                                      " to your PATH system variable. (example: EXPORT ${PATH}:/path/to/ants/bin)"))
         output_image = sitk.N4BiasFieldCorrection(sitk.ReadImage(in_file))
         sitk.WriteImage(output_image, out_file)
-        return os.path.abspath(out_file)
 
 
 def rescale(in_file, out_file, minimum=0, maximum=20000):

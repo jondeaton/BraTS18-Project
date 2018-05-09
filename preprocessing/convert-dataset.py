@@ -31,6 +31,7 @@ import multiprocessing as mp
 
 from segmentation.partitions import *
 from segmentation.partitioning import *
+from .records import get_TFRecord_filename, get_id_of_TFRecord
 
 logger = logging.getLogger()
 pool_size = 8  # Pool of worker processes
@@ -61,7 +62,7 @@ def transform_patient(brats_root, year, output_directory, patient_id):
     example = tf.train.Example(features=tf.train.Features(feature=feature))
 
     # Write it to file (compressed)
-    tf_record_filename = os.path.join(output_directory, "%s.tfrecord.gzip" % patient_id)
+    tf_record_filename = os.path.join(output_directory, get_TFRecord_filename(patient_id))
     options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
     with tf.python_io.TFRecordWriter(tf_record_filename, options=options) as writer:
         writer.write(example.SerializeToString())

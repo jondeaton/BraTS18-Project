@@ -88,7 +88,7 @@ class DataSubSet:
             # Load it from scratch
             for i, patient_id in enumerate(self._patient_ids):
                 patient_dir = self.directory_map[patient_id]
-                load_patient_data(patient_dir, mri_array=self._mris, seg_array=self._segs, index=i)
+                load_patient_data_inplace(patient_dir, self._mris, self._segs, i)
 
     @property
     def patients(self):

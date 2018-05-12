@@ -18,23 +18,26 @@ built on top of the BraTS loader module
 Better solution: use GZIP format for the TFRecords and it stays like 2GB
 """
 
-import os
 import sys
 import argparse
 import logging
-import BraTS
 
-from random import shuffle
-import tensorflow as tf
 import numpy as np
 import multiprocessing as mp
 
-from segmentation.partitions import *
-from segmentation.partitioning import *
-from .records import get_TFRecord_filename, get_id_of_TFRecord
+from preprocessing.partitions import *
+from preprocessing.partitioning import *
+from .records import get_TFRecord_filename
 
 logger = logging.getLogger()
 pool_size = 8  # Pool of worker processes
+
+
+def parse_tfrecord(filename):
+    image_string = tf.read_file(filename)
+    image_decoded = tf.image.decode_image(image_string)
+    image_resized = tf.image.resize_images(image_decoded, [28, 28])
+    return image_resized, label
 
 
 def transform_patient_shell(args):

@@ -87,3 +87,6 @@ def get_modality_map(patient_dir):
     for file in files:
         d[get_modality(file)] = file
     return d
+
+def get_modality_file(patient_dir, modality):
+    return get_modality_map(patient_dir)[modality]

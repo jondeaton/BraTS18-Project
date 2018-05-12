@@ -14,6 +14,7 @@ setup(name='BraTS',
           "pandas",
           "nibabel",    # Neuro-Imaging file format library
           "nipype",     # More neuro-imaging libraries
+          "nilearn",
           "SimpleITK"   # For normalizing the data
       ],
       zip_safe=False)

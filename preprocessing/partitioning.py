@@ -14,8 +14,6 @@ Import this script to accomplish any of the following
 """
 
 import os
-import tensorflow as tf
-
 import BraTS
 from BraTS.modalities import mri_shape, image_shape
 

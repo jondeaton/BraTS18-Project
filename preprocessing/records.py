@@ -7,7 +7,6 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 
 import os
 
-
 def get_TFRecord_filename(patient_id):
     """
     Gets the name that should be assigned to a TFRecord of a patient ID

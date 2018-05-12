@@ -4,16 +4,12 @@ File: BraTS_partitions
 Date: 5/5/18 
 Author: Jon Deaton (jdeaton@stanford.edu)
 """
-import os
-import BraTS
 
-import os
 import sys
 import argparse
 import logging
-from random import shuffle
 
-from segmentation.partitioning import *
+from preprocessing.partitioning import *
 
 
 def parse_args():

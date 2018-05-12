@@ -17,9 +17,16 @@ import time
 import numpy as np
 import tensorflow as tf
 
+from tensorflow import keras 
+from keras import Input
+from keras.layers import (Activation, Conv3D, Dense, Dropout, Flatten, MaxPooling3D)
+from keras.models import Model
+
+
 from tensorflow.python.framework import ops
 from tensorflow.python.lib.io import file_io
 import io
+
 
 import BraTS
 
@@ -40,10 +47,32 @@ def load_datasets():
 
 
 
-
 def train(train_set, test_set):
     # todo!
     pass
+
+def model(input_shape):
+    '''Create 3D cnn model with parameters specified
+        return keras Model instance of Unet'''
+
+    X_input = Input(input_shape)
+
+    # Unet applied to X_input
+    X_input = Conv3D(filter = 32, kernel_size =(3, 3, 3))(X_input)
+    X = BatchNormalization(axis = 3, name = 'bn0')(X)
+    X = Activation('relu')(X)
+
+    # MAXPOOL
+    X = MaxPooling2D((2, 2), name='max_pool')(X)
+
+    # FLATTEN X (means convert it to a vector) + FULLYCONNECTED
+    X = Flatten()(X)
+    X = Dense(1, activation='sigmoid', name='fc')(X)
+
+    # Create model. This creates your Keras model instance, you'll use this instance to train/test the model.
+    model = Model(inputs = X_input, outputs = X, name='HappyModel')
+
+    return model
 
 
 def parse_args():

@@ -19,13 +19,13 @@ In order to use the data loader make sure that your BraTS dataset directory is c
 
     BraTS
     ├── BraTS15
-    │   ├── BraTS15_Training
-    │   └── BraTS15_Validation
+    │   ├── training
+    │   └── validation
     ├── BraTS17
-    │   ├── BraTS17_Training
-    │   └── BraTS17_Validation
+    │   ├── training
+    │   └── validation
     └── BraTS18
-        └── BraTS18_Training
+        └── training
  
  
  You can import the BraTS data-loader into Python
@@ -45,10 +45,10 @@ Then, you can access it's data members through `train`, `validation`, `hgg` and 
     # Access data patient-wise
     patient = brats.train.patient("Brats18_2013_7_1")   # Loads only a single patient (quick)
     
-    # Or load in all patients
-    patients = brats.train.patients # Loads all patients into a map (very slow)
-    patient = patients["Brats18_2013_7_1"]  # Then you can access 
-    
+    # Iterate through all patients
+    for patient in brats.train.patients:
+        process(patient.mri, patient.seg) # example
+       
     # Access to all the patient IDs
     patient_ids = brats.train.ids
  

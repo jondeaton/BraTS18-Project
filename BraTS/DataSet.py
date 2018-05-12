@@ -97,13 +97,9 @@ class DataSubSet:
 
         :return: A dictionary containing ALL patients
         """
-        if not self._patients_fully_loaded:
-            # Construct the patients dictionary
-            self._patients = {}
-            for i, patient_id in enumerate(self._patient_ids):
-                self._patients[patient_id] = self.patient(patient_id)
-            self._patients_fully_loaded = True
-        return self._patients
+        for patient_id in self.ids:
+            yield self.patient(patient_id)
+        self._patients_fully_loaded = True
 
     def patient(self, patient_id):
         """

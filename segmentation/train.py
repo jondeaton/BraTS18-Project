@@ -29,6 +29,8 @@ import io
 
 
 import BraTS
+from segmentation.partitions import load_datasets
+from BraTS.modalities import mri_shape, image_shape, seg_shape
 
 
 # Global Variables
@@ -37,19 +39,40 @@ save_file = None
 learning_rate = None
 num_epochs = None
 mini_batch_size = None
+seed = 0
 
 logger = logging.getLogger()
 
-def load_datasets():
 
-    filenames = get_train_filename()
-    return tf.data.TFRecordDataset(filenames=filenames)
+def model(X, Y):
+    with tf.variable_scope('conv1') as scope:
+        kernel = tf.get_variable("kernel", [2, 2, 8, 16], initializer=tf.contrib.layers.xavier_initializer(seed=seed))
+        Z1 = tf.nn.conv2d(X, kernel, strides=[1, 1, 1, 1], padding='SAME')
+        A1 = tf.nn.relu(Z1)
+        P1 = tf.nn.max_pool(A1, ksize=[1, 8, 8, 1], strides=[1, 8, 8, 1], padding='SAME')
 
+    with tf.variable_scope('conv2') as scope:
+        kernel = tf.get_variable("kernel", [2, 2, 8, 16], initializer=tf.contrib.layers.xavier_initializer(seed=seed))
+        Z2 = tf.nn.conv2d(P1, kernel, strides=[1, 1, 1, 1], padding='SAME')
+        A2 = tf.nn.relu(Z2)
+        P2 = tf.nn.max_pool(A2, ksize=[1, 4, 4, 1], strides=[1, 4, 4, 1], padding='SAME')
 
+    P2_flat = tf.contrib.layers.flatten(P2)
+    return None
 
+<<<<<<< HEAD
 def train(train_set, test_set):
     # todo!
     pass
+=======
+
+def train(train_dataset, test_dataset):
+    input_shape = (None,) + mri_shape
+    output_shape = (None,) + seg_shape
+    X = tf.placeholder(tf.float32, shape=input_shape)
+    Y = tf.placeholder(tf.float32, shape=output_shape)
+    pred_seg = model(X, Y)
+>>>>>>> 1329bef0ba02d5cc40b0533de327533cd275dd6a
 
 def model(input_shape):
     '''Create 3D cnn model with parameters specified
@@ -84,25 +107,30 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Train tumor segmentation model",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    info_options_group = parser.add_argument_group("Info")
-    info_options_group.add_argument("--job-dir", default=None, help="Job directory")
-    info_options_group.add_argument("--job-name", default="signs", help="Job name")
-    info_options_group.add_argument("-gcs", "--google-cloud", action='store_true', help="Running in Google Cloud")
-    info_options_group.add_argument("-aws", "--aws", action="store_true", help="Running in Amazon Web Services")
+    info_options = parser.add_argument_group("Info")
+    info_options.add_argument("--job-dir", default=None, help="Job directory")
+    info_options.add_argument("--job-name", default="signs", help="Job name")
+    info_options.add_argument("-gcs", "--google-cloud", action='store_true', help="Running in Google Cloud")
+    info_options.add_argument("-aws", "--aws", action="store_true", help="Running in Amazon Web Services")
 
-    io_options_group = parser.add_argument_group("I/O")
-    io_options_group.add_argument('--brats', help="BraTS root dataset directory")
-    io_options_group.add_argument("--save-file", help="File to save trained model in")
-    io_options_group.add_argument("--tensorboard", help="TensorBoard directory")
+    input_options = parser.add_argument_group("Input")
+    input_options.add_argument('--brats', help="BraTS root dataset directory")
+    input_options.add_argument('--records', help="TFRecords for data set directory")
 
-    hyper_params_group = parser.add_argument_group("Hyper-Parameters")
-    hyper_params_group.add_argument("-l", "--learning-rate", type=float, default=0.0001, help="Learning rate")
-    hyper_params_group.add_argument("-e", "--epochs", type=int, default=1500, help="Number of training epochs")
-    hyper_params_group.add_argument("-mb", "--mini-batch", type=int, default=128, help="Mini-batch size")
+    output_options = parser.add_argument_group("Output")
+    output_options.add_argument("--save-file", help="File to save trained model in")
 
-    logging_options_group = parser.add_argument_group("Logging")
-    logging_options_group.add_argument('--log', dest="log_level", default="WARNING", help="Logging level")
-    logging_options_group.add_argument('--log-file', default="model.log", help="Log file")
+    tensorboard_options = parser.add_argument_group("TensorBoard")
+    tensorboard_options.add_argument("--tensorboard", help="TensorBoard directory")
+
+    hyper_params = parser.add_argument_group("Hyper-Parameters")
+    hyper_params.add_argument("-l", "--learning-rate", type=float, default=0.0001, help="Learning rate")
+    hyper_params.add_argument("-e", "--epochs", type=int, default=1500, help="Number of training epochs")
+    hyper_params.add_argument("-mb", "--mini-batch", type=int, default=128, help="Mini-batch size")
+
+    logging_options = parser.add_argument_group("Logging")
+    logging_options.add_argument('--log', dest="log_level", default="WARNING", help="Logging level")
+    logging_options.add_argument('--log-file', default="model.log", help="Log file")
 
     args = parser.parse_args()
 
@@ -143,8 +171,9 @@ def main():
     else:
         logger.debug("Running locally.")
 
-    global tensorboard_dir, save_file, brats_directory
+    global tensorboard_dir, records_directory, save_file, brats_directory
     brats_directory = os.path.expanduser(args.brats)
+    records_directory = os.path.expanduser(args.records)
     tensorboard_dir = args.tensorboard
     save_file = args.save_file
 
@@ -162,11 +191,10 @@ def main():
     logger.info("Mini-batch size: %s" % mini_batch_size)
 
     logger.info("Loading BraTS data-set...")
-
-    train_set, test_set, validation_set = load_datasets()
-
+    train_dataset, test_dataset, validation_dataset = load_datasets(records_directory)
     logger.info("Data-set loaded.")
-    train(train_set, test_set)
+
+    train(train_dataset, test_dataset)
 
 
 

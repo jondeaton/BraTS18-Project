@@ -17,27 +17,27 @@ from .partitioning import default_partition_store, get_training_ids, get_test_id
 from preprocessing.records import *
 
 
-def get_record_id_map(brats_TFRecords_dir):
+def get_record_id_map(brats_tfrecords_dir):
     """
     Get the mapping from patient_id --> TFRecord file
 
-    :param brats_TFRecords_dir: directory containing all TFRecords
+    :param brats_tfrecords_dir: directory containing all TFRecords
     :return: Dictionary mapping patient_id to TFRecord file
     """
-    tfrecord_filenames = os.listdir(brats_TFRecords_dir)
+    tfrecord_filenames = os.listdir(brats_tfrecords_dir)
     id_record_map = {}
     for file_name in tfrecord_filenames:
         patient_id = get_id_of_TFRecord(file_name)
-        id_record_map[patient_id] = os.path.join(brats_TFRecords_dir, file_name)
+        id_record_map[patient_id] = os.path.join(brats_tfrecords_dir, file_name)
     return id_record_map
 
 
-def load_datasets(brats_TFRecords_dir, partition_dir=default_partition_store):
+def load_datasets(brats_tfrecords_dir, partition_dir=default_partition_store):
     """
     Loads the training, test, and validation data-sets into TensorFlow TFRecordDataset
 
     :param partition_dir: directory of partition
-    :param brats_TFRecords_dir: Directory of TFRecords
+    :param brats_tfrecords_dir: Directory of TFRecords
     :return: TFRecordDatasets:
         - train_dataset
         - test_dataset
@@ -47,7 +47,7 @@ def load_datasets(brats_TFRecords_dir, partition_dir=default_partition_store):
     test_ids = get_test_ids(partition_dir)
     validation_ids = get_validation_ids(partition_dir)
 
-    record_map = get_record_id_map(brats_TFRecords_dir)
+    record_map = get_record_id_map(brats_tfrecords_dir)
     train_dataset = get_dataset(train_ids, record_map)
     test_dataset = get_dataset(test_ids, record_map)
     validation_dataset = get_dataset(validation_ids, record_map)

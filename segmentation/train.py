@@ -24,6 +24,7 @@ from keras.models import Model
 from keras.layers import Activation, Conv3D, MaxPooling3D
 from keras.layers import BatchNormalization, Concatenate, UpSampling3D
 from keras.optimizers import Adam
+from keras.losses import binary_crossentropy
 
 from segmentation.metrics import dice_coefficient_loss, dice_coefficient
 
@@ -134,15 +135,17 @@ def UNet3D(input_shape):
     # Create model.
     model = Model(inputs=X_input, outputs=X, name='UNet')
 
-    num_labels = 4
-    final_convolution = Conv3D(num_labels, (1, 1, 1),
+    final_convolution = Conv3D(1,
+                               (1, 1, 1),
+                               data_format="channels_first",
+                               strides=(1, 1, 1),
                                padding='same')(X)
     act = Activation("sigmoid")(final_convolution)
     model = Model(inputs=X_input, outputs=act)
 
     metrics = [dice_coefficient]
     model.compile(optimizer=Adam(lr=learning_rate),
-                  loss=dice_coefficient_loss,
+                  loss=binary_crossentropy,
                   metrics=metrics)
     return model
 
@@ -153,12 +156,13 @@ def training_generator():
     shuffle(patient_ids)
 
     mri = np.empty((1,) + mri_shape)
-    seg = np.empty((1,) + seg_shape)
+    seg = np.empty((1, 1,) + seg_shape)
 
     for patient_id in patient_ids:
         patient = brats.train.patient(patient_id)
         mri[0] = patient.mri
-        seg[0] = patient.seg
+        seg[0, 0] = patient.seg
+        seg[0, 0][seg[0, 0] >= 1] = 1  # disregard different tumor intensities
         yield mri, seg
         brats.drop_cache()
 

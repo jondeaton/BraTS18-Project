@@ -135,6 +135,9 @@ class DataSubSet:
         self._patients[patient_id] = patient  # cache the value for later
         return patient
 
+    def drop_cache(self):
+        self._patients = {}
+
     @property
     def _survival_df(self):
         if self._survival_csv in survival_df_cache:

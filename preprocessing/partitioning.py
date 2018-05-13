@@ -68,17 +68,17 @@ def generate_random_partitioning(brats_root, output_dir, year, num_test=40, num_
 
 
 # Functions for retrieving the partition, once generated
-def get_training_ids(partitioning_dir):
+def get_training_ids(partitioning_dir=default_partition_store):
     train_ids_file = os.path.join(partitioning_dir, train_ids_filename)
     return get_ids(train_ids_file)
 
 
-def get_test_ids(partitioning_dir):
+def get_test_ids(partitioning_dir=default_partition_store):
     test_ids_file = os.path.join(partitioning_dir, test_ids_filename)
     return get_ids(test_ids_file)
 
 
-def get_validation_ids(partitioning_dir):
+def get_validation_ids(partitioning_dir=default_partition_store):
     validation_ids_file = os.path.join(partitioning_dir, validation_ids_filename)
     return get_ids(validation_ids_file)
 

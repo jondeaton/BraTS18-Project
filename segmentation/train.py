@@ -19,17 +19,20 @@ import tensorflow as tf
 
 from tensorflow import keras
 from keras import Input
-from keras.layers import (Activation, Conv3D, Dense, Dropout, Flatten, MaxPooling3D)
 from keras.models import Model
+from keras.layers import Activation, Conv3D, MaxPooling3D
+from keras.layers import BatchNormalization, Concatenate, UpSampling3D
+from keras.optimizers import Adam
 
-from tensorflow.python.framework import ops
-from tensorflow.python.lib.io import file_io
-import io
+from segmentation.metrics import dice_coefficient_loss, dice_coefficient
 
 import BraTS
 from BraTS.modalities import mri_shape, seg_shape
 from preprocessing.partitions import load_datasets
 from augmentation.augmentation import augment_training_set
+from preprocessing.partitions import get_training_ids, get_validation_ids
+
+from random import shuffle
 
 # Global Variables
 tensorboard_dir = None
@@ -42,53 +45,103 @@ seed = 0
 logger = logging.getLogger()
 
 
-def model_tensorflow(X, Y):
-
-    with tf.variable_scope('conv1') as scope:
-        kernel = tf.get_variable("kernel", [2, 2, 8, 16], initializer=tf.contrib.layers.xavier_initializer(seed=seed))
-        Z1 = tf.nn.conv2d(X, kernel, strides=[1, 1, 1, 1], padding='SAME')
-        A1 = tf.nn.relu(Z1)
-        P1 = tf.nn.max_pool(A1, ksize=[1, 8, 8, 1], strides=[1, 8, 8, 1], padding='SAME')
-
-    with tf.variable_scope('conv2') as scope:
-        kernel = tf.get_variable("kernel", [2, 2, 8, 16], initializer=tf.contrib.layers.xavier_initializer(seed=seed))
-        Z2 = tf.nn.conv2d(P1, kernel, strides=[1, 1, 1, 1], padding='SAME')
-        A2 = tf.nn.relu(Z2)
-        P2 = tf.nn.max_pool(A2, ksize=[1, 4, 4, 1], strides=[1, 4, 4, 1], padding='SAME')
-
-    P2_flat = tf.contrib.layers.flatten(P2)
-    return None
+def ConvBlock(input_layer, num_filters=32):
+    layer = Conv3D(filters=num_filters, kernel_size=(3, 3, 3), padding='same')(input_layer)
+    layer = BatchNormalization(axis=3)(layer)
+    return Activation('relu')(layer)
 
 
-def train(train_dataset, test_dataset):
-    input_shape = (None,) + mri_shape
-    output_shape = (None,) + seg_shape
-    X = tf.placeholder(tf.float32, shape=input_shape)
-    Y = tf.placeholder(tf.float32, shape=output_shape)
-    pred_seg = model(X, Y)
+def UNetLevel(input_layer, num_filters):
+    X = ConvBlock(input_layer, num_filters=num_filters)
+    X = ConvBlock(X, num_filters=num_filters)
+    X = MaxPooling3D((3, 3, 3), name='max_pool')(X)
 
-def model(input_shape):
+
+def UNet3D(input_shape):
     '''Create 3D cnn model with parameters specified
         return keras Model instance of Unet'''
 
     X_input = Input(input_shape)
 
     # Unet applied to X_input
-    X_input = Conv3D(filter = 32, kernel_size =(3, 3, 3))(X_input)
-    X = BatchNormalization(axis = 3, name = 'bn0')(X)
-    X = Activation('relu')(X)
 
-    # MAXPOOL
-    X = MaxPooling2D((2, 2), name='max_pool')(X)
+    # Level 1
+    X = ConvBlock(X_input, num_filters=32)
+    X = ConvBlock(X, num_filters=32)
+    level_1 = X
+    X = MaxPooling3D((3, 3, 3), name='max_pool')(X)
 
-    # FLATTEN X (means convert it to a vector) + FULLYCONNECTED
-    X = Flatten()(X)
-    X = Dense(1, activation='sigmoid', name='fc')(X)
+    # Level 2
+    X = ConvBlock(X, num_filters=64)
+    X = ConvBlock(X, num_filters=64)
+    level_2 = X
+    X = MaxPooling3D((3, 3, 3), name='max_pool')(X)
 
-    # Create model. This creates your Keras model instance, you'll use this instance to train/test the model.
-    model = Model(inputs = X_input, outputs = X, name='HappyModel')
+    # Level 3
+    X = ConvBlock(X, num_filters=128)
+    X = ConvBlock(X, num_filters=128)
+    level_3 = X
+    X = MaxPooling3D((3, 3, 3), name='max_pool')(X)
 
+    # Lowest Level
+    X = ConvBlock(X, num_filters=128)
+    X = ConvBlock(X, num_filters=128)
+
+    # Level 3 (UP)
+    X = UpSampling3D(X, size=(2, 2, 2))
+    X = Concatenate([X, level_3], axis=1)
+    X = Conv3D(X, num_filters=128)
+    X = Conv3D(X, num_filters=128)
+
+    # Level 2 (UP)
+    X = UpSampling3D(X, size=(2, 2, 2))
+    X = Concatenate([X, level_2], axis=1)
+    X = Conv3D(X, num_filters=64)
+    X = Conv3D(X, num_filters=64)
+
+    # Level 1 (UP)
+    X = UpSampling3D(X, size=(2, 2, 2))
+    X = Concatenate([X, level_1], axis=1)
+    X = Conv3D(X, num_filters=32)
+    X = Conv3D(X, num_filters=32)
+
+    # Create model.
+    model = Model(inputs=X_input, outputs=X, name='UNet')
+
+    num_labels = 4
+    final_convolution = Conv3D(num_labels, (1, 1, 1))(X)
+    act = Activation("sigmoid")(final_convolution)
+    model = Model(inputs=X_input, outputs=act)
+
+    metrics = [dice_coefficient]
+    model.compile(optimizer=Adam(lr=learning_rate),
+                  loss=dice_coefficient_loss,
+                  metrics=metrics)
     return model
+
+
+def training_generator(brats_directory):
+    brats = BraTS.DataSet(brats_root=brats_directory, year=2018)
+    patient_ids = get_training_ids()
+    shuffle(patient_ids)
+    for patient_id in patient_ids:
+        yield brats.train.patient(patient_id)
+
+
+def validation_generator(brats_directory):
+    brats = BraTS.DataSet(brats_root=brats_directory, year=2018)
+    patient_ids = get_training_ids()
+    shuffle(patient_ids)
+    for patient_id in patient_ids:
+        yield brats.train.patient(patient_id)
+
+
+def train(model):
+    model.fit_generator(generator=training_generator,
+                        steps_per_epoch=1,
+                        epochs=num_epochs,
+                        validation_data=validation_generator,
+                        validation_steps=1)
 
 
 def parse_args():
@@ -160,6 +213,7 @@ def main():
     else:
         logger.debug("Running locally.")
 
+    global config
     config = configparser.ConfigParser()
     config.read(args.config)
 
@@ -191,15 +245,18 @@ def main():
 
     # With TFRecords
 
-    records_dir = os.path.expanduser(config["Input"])
-    train_dataset, test_dataset, validation_dataset = load_tfrecord_datasets
+    # records_dir = os.path.expanduser(config["Input"])
+    # train_dataset, test_dataset, validation_dataset = load_tfrecord_datasets
 
 
     logger.info("Augmenting training data.")
-    train_dataset = augment_training_set(train_dataset)
+    # train_dataset = augment_training_set(train_dataset)
+
+    logger.info("Defining model.")
+    model = UNet3D(mri_shape)
 
     logger.debug("Initiating training")
-    train(train_dataset, test_dataset)
+    train(model)
 
     logger.debug("Exiting.")
 

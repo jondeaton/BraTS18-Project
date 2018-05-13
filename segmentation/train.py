@@ -15,10 +15,11 @@ import argparse
 import logging
 import configparser
 
-import numpy as np
-import tensorflow as tf
+import progressbar
+from random import shuffle
 
-from tensorflow import keras
+import numpy as np
+
 from keras import Input
 from keras.models import Model
 from keras.layers import Activation, Conv3D, MaxPooling3D
@@ -29,12 +30,9 @@ from keras.losses import binary_crossentropy
 from segmentation.metrics import dice_coefficient_loss, dice_coefficient
 
 import BraTS
+from BraTS.Patient import load_patient_data
 from BraTS.modalities import mri_shape, seg_shape
-from preprocessing.partitions import load_datasets
-from augmentation.augmentation import augment_training_set
 from preprocessing.partitions import get_training_ids, get_test_ids
-
-from random import shuffle
 
 # Global Variables
 tensorboard_dir = None
@@ -158,21 +156,13 @@ def training_generator():
     mri = np.empty((1,) + mri_shape)
     seg = np.empty((1, 1,) + seg_shape)
 
-    for patient_id in patient_ids:
-        patient = brats.train.patient(patient_id)
-        mri[0] = patient.mri
-        seg[0, 0] = patient.seg
-        seg[0, 0][seg[0, 0] >= 1] = 1  # disregard different tumor intensities
-        yield mri, seg
-        brats.drop_cache()
-
-def validation_generator(brats_directory):
-    brats = BraTS.DataSet(brats_root=brats_directory, year=2018)
-    patient_ids = get_training_ids()
-    shuffle(patient_ids)
-    for patient_id in patient_ids:
-        yield brats.train.patient(patient_id)
-
+    bar = progressbar.ProgressBar()
+    for patient_id in bar(patient_ids):
+        patient_dir = brats.train.directory_map[patient_id]
+        _mri, _seg = load_patient_data(patient_dir)
+        _seg[_seg >= 1] = 1
+        mri[0] = _mri
+        seg[0, 0] = _seg
 
 def train(model, validation_data):
     model.fit_generator(generator=training_generator(),

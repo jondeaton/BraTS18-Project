@@ -111,10 +111,11 @@ class DataSubSet:
         if patient_id not in self._patient_ids:
             raise ValueError("Patient id \"%s\" not present." % patient_id)
 
+        # Return cached value if present
         if patient_id in self._patients:
-            # Return cached value if present
             return self._patients[patient_id]
 
+        # Load patient data into memory
         patient = Patient(patient_id)
         patient_dir = self.directory_map[patient_id]
 
@@ -136,7 +137,10 @@ class DataSubSet:
         return patient
 
     def drop_cache(self):
-        self._patients = {}
+        self._patients.clear()
+        self._mris = None
+        self._segs = None
+
 
     @property
     def _survival_df(self):

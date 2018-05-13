@@ -18,8 +18,8 @@ class DataSubsetType(Enum):
     validation = 3
 
 
-def get_brats_subset_directory(brats_dataset_dir, data_set_type):
 
+def get_brats_subset_directory(brats_dataset_dir, data_set_type):
     if data_set_type == DataSubsetType.train:
         # Training data
         try:
@@ -31,10 +31,12 @@ def get_brats_subset_directory(brats_dataset_dir, data_set_type):
         return os.path.join(brats_dataset_dir, "training")
 
     if data_set_type == DataSubsetType.hgg:
-        return os.path.join(get_brats_subset_directory(brats_dataset_dir, DataSubsetType.train), "HGG")
+        train_dir = get_brats_subset_directory(brats_dataset_dir, DataSubsetType.train)
+        return os.path.join(train_dir, "HGG")
 
     if data_set_type == DataSubsetType.lgg:
-        return os.path.join(get_brats_subset_directory(brats_dataset_dir, DataSubsetType.train), "LGG")
+        train_dir = get_brats_subset_directory(brats_dataset_dir, DataSubsetType.train)
+        return os.path.join(train_dir, "LGG")
 
     if data_set_type == DataSubsetType.validation:
         # Validation

@@ -58,6 +58,29 @@ def ConvBlockDown(input_layer, num_filters=32):
     layer = BatchNormalization(axis=1)(layer)
     return Activation('relu')(layer)
 
+
+def ConvBlockUp(input_layer, concat, num_filters=32):
+    strides = (1, 1, 1)
+    pool_size = (2, 2, 2)
+    kernel = (3, 3, 3)
+
+    X = UpSampling3D(size=pool_size)(input_layer)
+    X = Concatenate(axis=1)([X, concat])
+
+    X = Conv3D(num_filters,
+               kernel,
+               data_format="channels_first",
+               strides=strides,
+               padding='same')(X)
+
+    X = Conv3D(num_filters,
+               kernel,
+               data_format="channels_first",
+               strides=strides,
+               padding='same')(X)
+    return X
+
+
 def UNetLevel(input_layer, num_filters):
     X = ConvBlockDown(input_layer, num_filters=num_filters)
     X = ConvBlockDown(X, num_filters=num_filters)
@@ -102,23 +125,10 @@ def UNet3D(input_shape):
     X = ConvBlockDown(X, num_filters=128)
     X = ConvBlockDown(X, num_filters=128)
 
-    # Level 3 (UP)
-    X = UpSampling3D(size=(2, 2, 2))(X)
-    X = Concatenate([X, level_3], axis=1)
-    X = Conv3D(X, num_filters=128)(X)
-    X = Conv3D(X, num_filters=128)(X)
-
-    # Level 2 (UP)
-    X = UpSampling3D(size=pool_size)
-    X = Concatenate([X, level_2], axis=1)
-    X = Conv3D(X, num_filters=64)
-    X = Conv3D(X, num_filters=64)
-
-    # Level 1 (UP)
-    X = UpSampling3D(X, size=pool_size)
-    X = Concatenate([X, level_1], axis=1)
-    X = Conv3D(X, num_filters=32)
-    X = Conv3D(X, num_filters=32)
+    # Up-convolutions
+    X = ConvBlockUp(X, level_3, num_filters=128)
+    X = ConvBlockUp(X, level_2, num_filters=64)
+    X = ConvBlockUp(X, level_1, num_filters=32)
 
     # Create model.
     model = Model(inputs=X_input, outputs=X, name='UNet')

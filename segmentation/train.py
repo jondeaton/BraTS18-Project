@@ -15,6 +15,7 @@ import argparse
 import logging
 import configparser
 
+import numpy as np
 import tensorflow as tf
 
 from tensorflow import keras
@@ -30,7 +31,7 @@ import BraTS
 from BraTS.modalities import mri_shape, seg_shape
 from preprocessing.partitions import load_datasets
 from augmentation.augmentation import augment_training_set
-from preprocessing.partitions import get_training_ids, get_validation_ids
+from preprocessing.partitions import get_training_ids, get_test_ids
 
 from random import shuffle
 
@@ -134,7 +135,8 @@ def UNet3D(input_shape):
     model = Model(inputs=X_input, outputs=X, name='UNet')
 
     num_labels = 4
-    final_convolution = Conv3D(num_labels, (1, 1, 1))(X)
+    final_convolution = Conv3D(num_labels, (1, 1, 1),
+                               padding='same')(X)
     act = Activation("sigmoid")(final_convolution)
     model = Model(inputs=X_input, outputs=act)
 
@@ -145,13 +147,20 @@ def UNet3D(input_shape):
     return model
 
 
-def training_generator(brats_directory):
+def training_generator():
     brats = BraTS.DataSet(brats_root=brats_directory, year=2018)
-    patient_ids = get_training_ids()
+    patient_ids = list(get_training_ids())
     shuffle(patient_ids)
-    for patient_id in patient_ids:
-        yield brats.train.patient(patient_id)
 
+    mri = np.empty((1,) + mri_shape)
+    seg = np.empty((1,) + seg_shape)
+
+    for patient_id in patient_ids:
+        patient = brats.train.patient(patient_id)
+        mri[0] = patient.mri
+        seg[0] = patient.seg
+        yield mri, seg
+        brats.drop_cache()
 
 def validation_generator(brats_directory):
     brats = BraTS.DataSet(brats_root=brats_directory, year=2018)
@@ -161,12 +170,10 @@ def validation_generator(brats_directory):
         yield brats.train.patient(patient_id)
 
 
-def train(model):
-    model.fit_generator(generator=training_generator,
+def train(model, validation_data):
+    model.fit_generator(generator=training_generator(),
                         steps_per_epoch=1,
-                        epochs=num_epochs,
-                        validation_data=validation_generator,
-                        validation_steps=1)
+                        epochs=num_epochs)
 
 
 def parse_args():
@@ -228,6 +235,19 @@ def parse_args():
     return args
 
 
+def get_test_data():
+    test_ids = get_test_ids()
+    num_test = len(test_ids)
+
+    brats = BraTS.DataSet(brats_root=brats_directory, year=2018)
+
+    test_mris = np.empty((num_test,) + mri_shape)
+    test_segs = np.empty((num_test,) + seg_shape)
+    for i, patient_id in enumerate(test_ids):
+        test_mris[i] = brats.train.patient(patient_id).mri
+        test_segs[i] = brats.train.patient(patient_id).seg
+    return test_mris, test_segs
+
 def main():
     args = parse_args()
 
@@ -260,28 +280,14 @@ def main():
     logger.info("Num epochs: %s" % num_epochs)
     logger.info("Mini-batch size: %s" % mini_batch_size)
 
-    logger.info("Loading BraTS data-set.")
-
-    # Without TFRecords
-    # brats = BraTS.DataSet(brats_root=brats_directory, year=args.year)
-    # directory_map = brats.train.directory_map
-    #
-    # train_dataset, test_dataset, validation_dataset = load_datasets(directory_map)
-
-    # With TFRecords
-
-    # records_dir = os.path.expanduser(config["Input"])
-    # train_dataset, test_dataset, validation_dataset = load_tfrecord_datasets
-
-
-    logger.info("Augmenting training data.")
-    # train_dataset = augment_training_set(train_dataset)
-
     logger.info("Defining model.")
     model = UNet3D(mri_shape)
 
+    logger.info("Creating test data...")
+    # test_data = get_test_data()
+
     logger.debug("Initiating training")
-    train(model)
+    train(model, None)
 
     logger.debug("Exiting.")
 

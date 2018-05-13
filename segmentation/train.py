@@ -45,22 +45,22 @@ seed = 0
 logger = logging.getLogger()
 
 
-def ConvBlock(input_layer, num_filters=32):
+def ConvBlockDown(input_layer, num_filters=32):
 
     strides = (1, 1, 1)
     kernel = (3, 3, 3)
 
     layer = Conv3D(num_filters,
                    kernel,
+                   data_format="channels_first",
                    strides=strides,
                    padding='same')(input_layer)
     layer = BatchNormalization(axis=1)(layer)
     return Activation('relu')(layer)
 
-
 def UNetLevel(input_layer, num_filters):
-    X = ConvBlock(input_layer, num_filters=num_filters)
-    X = ConvBlock(X, num_filters=num_filters)
+    X = ConvBlockDown(input_layer, num_filters=num_filters)
+    X = ConvBlockDown(X, num_filters=num_filters)
     X = MaxPooling3D((3, 3, 3), name='max_pool')(X)
 
 
@@ -79,37 +79,37 @@ def UNet3D(input_shape):
     # Unet applied to X_input
 
     # Level 1
-    X = ConvBlock(X_input, num_filters=32)
-    X = ConvBlock(X, num_filters=32)
+    X = ConvBlockDown(X_input, num_filters=32)
+    X = ConvBlockDown(X, num_filters=32)
     level_1 = X
     X = MaxPooling3D(pool_size=pool_size,
                      name='max_pool1')(X)
 
     # Level 2
-    X = ConvBlock(X, num_filters=64)
-    X = ConvBlock(X, num_filters=64)
+    X = ConvBlockDown(X, num_filters=64)
+    X = ConvBlockDown(X, num_filters=64)
     level_2 = X
     X = MaxPooling3D(pool_size=pool_size,
                      name='max_pool2')(X)
 
     # Level 3
-    X = ConvBlock(X, num_filters=128)
-    X = ConvBlock(X, num_filters=128)
+    X = ConvBlockDown(X, num_filters=128)
+    X = ConvBlockDown(X, num_filters=128)
     level_3 = X
     X = MaxPooling3D(pool_size=pool_size, name='max_pool3')(X)
 
     # Lowest Level
-    X = ConvBlock(X, num_filters=128)
-    X = ConvBlock(X, num_filters=128)
+    X = ConvBlockDown(X, num_filters=128)
+    X = ConvBlockDown(X, num_filters=128)
 
     # Level 3 (UP)
-    X = UpSampling3D(X, size=(2, 2, 2))
+    X = UpSampling3D(size=(2, 2, 2))(X)
     X = Concatenate([X, level_3], axis=1)
-    X = Conv3D(X, num_filters=128)
-    X = Conv3D(X, num_filters=128)
+    X = Conv3D(X, num_filters=128)(X)
+    X = Conv3D(X, num_filters=128)(X)
 
     # Level 2 (UP)
-    X = UpSampling3D(X, size=pool_size)
+    X = UpSampling3D(size=pool_size)
     X = Concatenate([X, level_2], axis=1)
     X = Conv3D(X, num_filters=64)
     X = Conv3D(X, num_filters=64)

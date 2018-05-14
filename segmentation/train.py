@@ -102,33 +102,33 @@ def UNet3D(input_shape):
     # Unet applied to X_input
 
     # Level 1
-    X = ConvBlockDown(X_input, num_filters=32)
-    X = ConvBlockDown(X, num_filters=32)
+    X = ConvBlockDown(X_input, num_filters=8)
+    X = ConvBlockDown(X, num_filters=8)
     level_1 = X
     X = MaxPooling3D(pool_size=pool_size,
                      name='max_pool1')(X)
 
     # Level 2
-    X = ConvBlockDown(X, num_filters=64)
-    X = ConvBlockDown(X, num_filters=64)
+    X = ConvBlockDown(X, num_filters=16)
+    X = ConvBlockDown(X, num_filters=16)
     level_2 = X
     X = MaxPooling3D(pool_size=pool_size,
                      name='max_pool2')(X)
 
     # Level 3
-    X = ConvBlockDown(X, num_filters=128)
-    X = ConvBlockDown(X, num_filters=128)
+    X = ConvBlockDown(X, num_filters=32)
+    X = ConvBlockDown(X, num_filters=32)
     level_3 = X
     X = MaxPooling3D(pool_size=pool_size, name='max_pool3')(X)
 
     # Lowest Level
-    X = ConvBlockDown(X, num_filters=128)
-    X = ConvBlockDown(X, num_filters=128)
+    X = ConvBlockDown(X, num_filters=32)
+    X = ConvBlockDown(X, num_filters=32)
 
     # Up-convolutions
-    X = ConvBlockUp(X, level_3, num_filters=128)
-    X = ConvBlockUp(X, level_2, num_filters=64)
-    X = ConvBlockUp(X, level_1, num_filters=32)
+    X = ConvBlockUp(X, level_3, num_filters=32)
+    X = ConvBlockUp(X, level_2, num_filters=16)
+    X = ConvBlockUp(X, level_1, num_filters=8)
 
     # Create model.
     model = Model(inputs=X_input, outputs=X, name='UNet')
@@ -164,11 +164,10 @@ def get_test_data():
 def training_generator():
     brats = BraTS.DataSet(brats_root=brats_directory, year=2018)
     patient_ids = list(get_training_ids())
-
-
+    
     mri = np.empty((1,) + mri_shape)
     seg = np.empty((1, 1,) + seg_shape)
-
+    
     while True:
         shuffle(patient_ids)
         for patient_id in patient_ids:
@@ -178,6 +177,7 @@ def training_generator():
             mri[0] = _mri
             seg[0, 0] = _seg
             yield mri, seg
+            
 
 def train(model, validation_data):
     model.fit_generator(generator=training_generator(),

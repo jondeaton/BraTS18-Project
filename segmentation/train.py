@@ -13,7 +13,6 @@ import os
 import sys
 import argparse
 import logging
-import configparser
 
 import progressbar
 from random import shuffle
@@ -27,6 +26,7 @@ from keras.layers import BatchNormalization, Concatenate, UpSampling3D
 from keras.optimizers import Adam
 from keras.losses import binary_crossentropy
 
+from segmentation.config import config
 from segmentation.metrics import dice_coefficient_loss, dice_coefficient
 
 import BraTS
@@ -147,27 +147,43 @@ def UNet3D(input_shape):
                   metrics=metrics)
     return model
 
+def get_test_data():
+    test_ids = get_test_ids()
+    num_test = len(test_ids)
+
+    brats = BraTS.DataSet(brats_root=brats_directory, year=2018)
+
+    test_mris = np.empty((num_test,) + mri_shape)
+    test_segs = np.empty((num_test,) + seg_shape)
+    for i, patient_id in enumerate(test_ids):
+        test_mris[i] = brats.train.patient(patient_id).mri
+        test_segs[i] = brats.train.patient(patient_id).seg
+    return test_mris, test_segs
+
 
 def training_generator():
     brats = BraTS.DataSet(brats_root=brats_directory, year=2018)
     patient_ids = list(get_training_ids())
-    shuffle(patient_ids)
+
 
     mri = np.empty((1,) + mri_shape)
     seg = np.empty((1, 1,) + seg_shape)
 
-    bar = progressbar.ProgressBar()
-    for patient_id in bar(patient_ids):
-        patient_dir = brats.train.directory_map[patient_id]
-        _mri, _seg = load_patient_data(patient_dir)
-        _seg[_seg >= 1] = 1
-        mri[0] = _mri
-        seg[0, 0] = _seg
+    while True:
+        shuffle(patient_ids)
+        for patient_id in patient_ids:
+            patient_dir = brats.train.directory_map[patient_id]
+            _mri, _seg = load_patient_data(patient_dir)
+            _seg[_seg >= 1] = 1
+            mri[0] = _mri
+            seg[0, 0] = _seg
+            yield mri, seg
 
 def train(model, validation_data):
     model.fit_generator(generator=training_generator(),
-                        steps_per_epoch=1,
-                        epochs=num_epochs)
+                        steps_per_epoch=205,
+                        epochs=num_epochs,
+                        verbose=1)
 
 
 def parse_args():
@@ -184,7 +200,7 @@ def parse_args():
     info_options.add_argument("--job-name", default="BraTS", help="Job name")
     info_options.add_argument("-gcs", "--google-cloud", action='store_true', help="Running in Google Cloud")
     info_options.add_argument("-aws", "--aws", action="store_true", help="Running in Amazon Web Services")
-    info_options.add_argument("--config", default="train_config.ini", help="Config file.")
+    info_options.add_argument("--config", help="Config file.")
 
     input_options = parser.add_argument_group("Input")
     input_options.add_argument('--brats', help="BraTS root dataset directory")
@@ -229,19 +245,6 @@ def parse_args():
     return args
 
 
-def get_test_data():
-    test_ids = get_test_ids()
-    num_test = len(test_ids)
-
-    brats = BraTS.DataSet(brats_root=brats_directory, year=2018)
-
-    test_mris = np.empty((num_test,) + mri_shape)
-    test_segs = np.empty((num_test,) + seg_shape)
-    for i, patient_id in enumerate(test_ids):
-        test_mris[i] = brats.train.patient(patient_id).mri
-        test_segs[i] = brats.train.patient(patient_id).seg
-    return test_mris, test_segs
-
 def main():
     args = parse_args()
 
@@ -252,9 +255,8 @@ def main():
     else:
         logger.debug("Running locally.")
 
-    global config
-    config = configparser.ConfigParser()
-    config.read(args.config)
+    if args.config is not None:
+        config.read(args.config)
 
     global tensorboard_dir, save_file, brats_directory
     brats_directory = os.path.expanduser(config["BraTS"]["root"])

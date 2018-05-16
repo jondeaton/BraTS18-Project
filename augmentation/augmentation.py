@@ -54,7 +54,7 @@ def add_noise(mri, seg):
 
 def blur(mri, seg):
     blurred = gaussian_filter(mri, sigma=0.5)
-    return blurred
+    return blurred, seg
 
 
 def augment_training_set(train_dataset):

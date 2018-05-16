@@ -82,6 +82,7 @@ def training_generator():
             yield fix_dims(*add_noise(mri, seg), mri, seg)
             yield fix_dims(*blur(mri, seg), mri, seg)
 
+
 def train(model, test_data):
     """
     Trains a model
@@ -101,7 +102,8 @@ def train(model, test_data):
 
     tb_callback = TensorBoard(log_dir=config.tensorboard_dir,
                               histogram_freq=1,
-                              write_graph=True)
+                              write_graph=True,
+                              write_images=True)
 
 
     callbacks = [tb_callback, checkpoint_callback]

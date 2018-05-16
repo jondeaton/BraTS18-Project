@@ -164,7 +164,7 @@ def get_test_data():
 def training_generator():
     brats = BraTS.DataSet(brats_root=brats_directory, year=2018)
     patient_ids = list(get_training_ids())
-    
+
     mri = np.empty((1,) + mri_shape)
     seg = np.empty((1, 1,) + seg_shape)
     
@@ -177,7 +177,6 @@ def training_generator():
             mri[0] = _mri
             seg[0, 0] = _seg
             yield mri, seg
-            
 
 def train(model, validation_data):
     model.fit_generator(generator=training_generator(),

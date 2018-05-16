@@ -53,12 +53,16 @@ def get_test_data():
         test_segs[i] = brats.train.patient(patient_id).seg
     return test_mris, test_segs
 
+def fix_dims(mri, seg, out_mri, out_seg):
+    out_mri[0] = mri
+    out_seg[0, 0] = seg
+    return out_mri, out_seg
 
 def training_generator():
     """
     Generates training examples
 
-    :return:
+    :return: Yields a single MRI and segmentation pair
     """
     brats = BraTS.DataSet(brats_root=config.brats_directory, year=2018)
     patient_ids = list(get_training_ids())
@@ -72,12 +76,11 @@ def training_generator():
             patient_dir = brats.train.directory_map[patient_id]
             _mri, _seg = load_patient_data(patient_dir)
             _seg[_seg >= 1] = 1
-            mri[0] = _mri
-            seg[0, 0] = _seg
-            yield mri, seg
-            yield random_flip(mri, seg)
-            yield add_noise(mri, seg)
-            yield blur(mri, seg)
+
+            yield fix_dims(_mri, _seg, mri, seg)
+            yield fix_dims(*random_flip(_mri, _seg), mri, seg)
+            yield fix_dims(*add_noise(mri, seg), mri, seg)
+            yield fix_dims(*blur(mri, seg), mri, seg)
 
 def train(model, test_data):
     """

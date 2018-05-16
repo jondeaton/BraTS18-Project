@@ -14,7 +14,7 @@ import sys
 import argparse
 import logging
 
-import progressbar
+
 from random import shuffle
 
 import numpy as np
@@ -25,6 +25,7 @@ from keras.layers import Activation, Conv3D, MaxPooling3D
 from keras.layers import BatchNormalization, Concatenate, UpSampling3D
 from keras.optimizers import Adam
 from keras.losses import binary_crossentropy
+from keras.callbacks import TensorBoard
 
 from segmentation.config import config
 from segmentation.metrics import dice_coefficient_loss, dice_coefficient
@@ -177,13 +178,23 @@ def training_generator():
             mri[0] = _mri
             seg[0, 0] = _seg
             yield mri, seg
-            
+
 
 def train(model, validation_data):
+    callbacks = []
+    callbacks.append(ModelCheckpoint(save_file, save_best_only=True))
+    
+    tb_callback = TensorBoard(log_dir=tensorboard_dir,
+            histogram_freq=1,
+            write_graph=True)
+    callbacks.append(tb_callback)
+
     model.fit_generator(generator=training_generator(),
                         steps_per_epoch=205,
                         epochs=num_epochs,
-                        verbose=1)
+                        verbose=1,
+                        validation_data=validation_data,
+                        callbacks=callbacks)
 
 
 def parse_args():

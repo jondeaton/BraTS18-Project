@@ -99,3 +99,4 @@ def UNet3D(input_shape, filter_start=8, pool_size=(2, 2, 2)):
                                padding='same')(X)
     act = Activation("sigmoid")(final_convolution)
     model = Model(inputs=X_input, outputs=act)
+    return model

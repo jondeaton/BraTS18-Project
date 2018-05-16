@@ -99,20 +99,20 @@ def train(model):
 
     metrics = [dice_coefficient]
     model.compile(optimizer=Adam(lr=config.learning_rate),
-                  loss=binary_crossentropy,
+                  loss=dice_coefficient_loss,
                   metrics=metrics)
 
     checkpoint_callback = ModelCheckpoint(config.model_file,
                                           save_best_only=True)
 
     tb_callback = TrainValTensorBoard(log_dir=config.tensorboard_dir,
-                                      histogram_freq=1,
+                                      histogram_freq=0,
                                       write_graph=True,
                                       write_images=True)
 
     callbacks = [tb_callback, checkpoint_callback]
     model.fit_generator(generator=make_generator(get_training_ids(), augment=True),
-                        steps_per_epoch=8,
+                        steps_per_epoch=4 * 205,
                         epochs=config.num_epochs,
                         verbose=1,
                         validation_data=make_generator(get_test_ids(), augment=False),

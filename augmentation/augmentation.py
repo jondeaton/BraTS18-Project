@@ -24,6 +24,7 @@ def random_flip(mri, seg):
     flipped_seg = np.flip(seg, axis=axis)
     return flipped_mri, flipped_seg
 
+
 def random_flip_tf(mri, seg):
     axis = np.random.randint(3)
     flipped_mri = tf.reverse(mri, axis=axis)

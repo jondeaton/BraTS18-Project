@@ -25,6 +25,19 @@ class TrainValTensorBoard(TensorBoard):
         self.val_writer = tf.summary.FileWriter(self.val_log_dir)
         super(TrainValTensorBoard, self).set_model(model)
 
+    def on_batch_end(self, batch, logs=None):
+        logs = logs or {}
+
+        for name, value in logs.items():
+            if name in ['batch', 'size']:
+                continue
+            summary = tf.Summary()
+            summary_value = summary.value.add()
+            summary_value.simple_value = value.item()
+            summary_value.tag = name
+            self.val_writer.add_summary(summary, batch)
+        self.writer.flush()
+
     def on_epoch_end(self, epoch, logs=None):
         # Pop the validation logs and handle them separately with
         # `self.val_writer`. Also rename the keys so that they can

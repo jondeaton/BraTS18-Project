@@ -46,7 +46,7 @@ def ConvBlockUp(input_layer, concat, num_filters=32):
     return X
 
 
-def UNet3D(input_shape, filter_start=8, pool_size=(2, 2, 2)):
+def UNet3D(input_shape, filter_start=4, pool_size=(2, 2, 2)):
     """
     3D UNet Module implemented in Keras
 

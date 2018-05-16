@@ -8,7 +8,6 @@ setup(name='BraTS',
       author_email="jdeaton@stanford.edu, cbackes@stanford.edu",
       license='MIT',
       install_requires=[
-          "tensorflow",
           "numpy",
           "matplotlib",
           "pandas",

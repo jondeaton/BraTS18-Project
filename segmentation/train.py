@@ -78,8 +78,8 @@ def training_generator():
     while True:
         shuffle(patient_ids)
         for patient_id in patient_ids:
-            patient = brats.train.patient(patient_id)
-            _mri, _seg = patient.mri, patient.seg
+            patient_dir = brats.train.directory_map[patient_id]
+            _mri, _seg = load_patient_data(patient_dir)
             _seg[_seg >= 1] = 1
 
             yield fix_dims(_mri, _seg, mri, seg)

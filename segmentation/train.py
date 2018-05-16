@@ -36,28 +36,32 @@ from augmentation.augmentation import blur, random_flip, add_noise
 logger = logging.getLogger()
 
 
-def get_test_data():
-    """
-    Loads data to test the model on
-
-    :return:
-    """
-    test_ids = get_test_ids()
-    num_test = len(test_ids)
-
+def make_generator(patient_ids, augment=False):
+    patient_ids = list(patient_ids)
     brats = BraTS.DataSet(brats_root=config.brats_directory, year=2018)
+    mri = np.empty((1,) + mri_shape)
+    seg = np.empty((1, 1) + seg_shape)
 
-    test_mris = np.empty((num_test,) + mri_shape)
-    test_segs = np.empty((num_test, 1) + seg_shape)
-    for i, patient_id in enumerate(test_ids):
-        test_mris[i] = brats.train.patient(patient_id).mri
-        test_segs[i, 0] = brats.train.patient(patient_id).seg
-    return test_mris, test_segs
+    while True:
+        shuffle(patient_ids)
+        for patient_id in patient_ids:
+            patient = brats.train.patient(patient_id)
+            _mri, _seg = patient.mri, patient.seg
+            _seg[_seg >= 1] = 1
+
+            yield fix_dims(_mri, _seg, mri, seg)
+            if augment:
+                yield fix_dims(*random_flip(_mri, _seg), mri, seg)
+                yield fix_dims(*add_noise(_mri, _seg), mri, seg)
+                yield fix_dims(*blur(_mri, _seg), mri, seg)
+            brats.train.drop_cache()
+
 
 def fix_dims(mri, seg, out_mri, out_seg):
     out_mri[0] = mri
     out_seg[0, 0] = seg
     return out_mri, out_seg
+
 
 def training_generator():
     """
@@ -74,8 +78,8 @@ def training_generator():
     while True:
         shuffle(patient_ids)
         for patient_id in patient_ids:
-            patient_dir = brats.train.directory_map[patient_id]
-            _mri, _seg = load_patient_data(patient_dir)
+            patient = brats.train.patient(patient_id)
+            _mri, _seg = patient.mri, patient.seg
             _seg[_seg >= 1] = 1
 
             yield fix_dims(_mri, _seg, mri, seg)
@@ -84,7 +88,7 @@ def training_generator():
             yield fix_dims(*blur(_mri, _seg), mri, seg)
 
 
-def train(model, test_data):
+def train(model):
     """
     Trains a model
 
@@ -107,11 +111,12 @@ def train(model, test_data):
                                       write_images=True)
 
     callbacks = [tb_callback, checkpoint_callback]
-    model.fit_generator(generator=training_generator(),
-                        steps_per_epoch=205,
+    model.fit_generator(generator=make_generator(get_training_ids(), augment=True),
+                        steps_per_epoch=8,
                         epochs=config.num_epochs,
                         verbose=1,
-                        validation_data=test_data,
+                        validation_data=make_generator(get_test_ids(), augment=False),
+                        nb_val_samples=40,
                         callbacks=callbacks)
 
 def parse_args():
@@ -189,9 +194,6 @@ def main():
     logger.info("Defining model.")
     model = UNet3D(mri_shape)
 
-    logger.info("Creating test data...")
-    test_data = get_test_data()
-
     logger.info("Initiating training.")
     logger.debug("TensorBoard Directory: %s" % config.tensorboard_dir)
     logger.debug("Model save file: %s" % config.model_file)
@@ -199,7 +201,7 @@ def main():
     logger.debug("Num epochs: %s" % config.num_epochs)
     logger.debug("Mini-batch size: %s" % config.mini_batch_size)
 
-    train(model, test_data)
+    train(model)
 
     logger.debug("Exiting.")
 

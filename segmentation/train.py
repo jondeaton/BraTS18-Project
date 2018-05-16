@@ -14,187 +14,110 @@ import sys
 import argparse
 import logging
 
-
+import numpy as np
 from random import shuffle
 
-import numpy as np
-
-from keras import Input
-from keras.models import Model
-from keras.layers import Activation, Conv3D, MaxPooling3D
-from keras.layers import BatchNormalization, Concatenate, UpSampling3D
 from keras.optimizers import Adam
 from keras.losses import binary_crossentropy
-from keras.callbacks import TensorBoard
-
-from segmentation.config import config
-from segmentation.metrics import dice_coefficient_loss, dice_coefficient
+from keras.callbacks import TensorBoard, ModelCheckpoint
 
 import BraTS
 from BraTS.Patient import load_patient_data
 from BraTS.modalities import mri_shape, seg_shape
 from preprocessing.partitions import get_training_ids, get_test_ids
 
-# Global Variables
-tensorboard_dir = None
-save_file = None
-learning_rate = None
-num_epochs = None
-mini_batch_size = None
-seed = 0
+from segmentation.model_UNet3D import UNet3D
+from segmentation.metrics import dice_coefficient_loss, dice_coefficient
+from segmentation.config import Configuration
+from segmentation.visualization import TrainValTensorBoard
+
+from augmentation.augmentation import blur, random_flip, add_noise
 
 logger = logging.getLogger()
 
 
-def ConvBlockDown(input_layer, num_filters=32):
+def make_generator(patient_ids, augment=False):
+    patient_ids = list(patient_ids)
+    brats = BraTS.DataSet(brats_root=config.brats_directory, year=2018)
+    mri = np.empty((1,) + mri_shape)
+    seg = np.empty((1, 1) + seg_shape)
 
-    strides = (1, 1, 1)
-    kernel = (3, 3, 3)
+    while True:
+        shuffle(patient_ids)
+        for patient_id in patient_ids:
+            patient = brats.train.patient(patient_id)
+            _mri, _seg = patient.mri, patient.seg
+            _seg[_seg >= 1] = 1
 
-    layer = Conv3D(num_filters,
-                   kernel,
-                   data_format="channels_first",
-                   strides=strides,
-                   padding='same')(input_layer)
-    layer = BatchNormalization(axis=1)(layer)
-    return Activation('relu')(layer)
-
-
-def ConvBlockUp(input_layer, concat, num_filters=32):
-    strides = (1, 1, 1)
-    pool_size = (2, 2, 2)
-    kernel = (3, 3, 3)
-
-    X = UpSampling3D(size=pool_size)(input_layer)
-    X = Concatenate(axis=1)([X, concat])
-
-    X = Conv3D(num_filters,
-               kernel,
-               data_format="channels_first",
-               strides=strides,
-               padding='same')(X)
-
-    X = Conv3D(num_filters,
-               kernel,
-               data_format="channels_first",
-               strides=strides,
-               padding='same')(X)
-    return X
+            yield fix_dims(_mri, _seg, mri, seg)
+            if augment:
+                yield fix_dims(*random_flip(_mri, _seg), mri, seg)
+                yield fix_dims(*add_noise(_mri, _seg), mri, seg)
+                yield fix_dims(*blur(_mri, _seg), mri, seg)
+            brats.train.drop_cache()
 
 
-def UNetLevel(input_layer, num_filters):
-    X = ConvBlockDown(input_layer, num_filters=num_filters)
-    X = ConvBlockDown(X, num_filters=num_filters)
-    X = MaxPooling3D((3, 3, 3), name='max_pool')(X)
-
-
-def UNet3D(input_shape):
-    """
-    3D UNet Module implemented in Keras
-
-    :param input_shape:
-    :return:
-    """
-
-    X_input = Input(input_shape)
-
-    pool_size = (2, 2, 2)
-
-    # Unet applied to X_input
-
-    # Level 1
-    X = ConvBlockDown(X_input, num_filters=8)
-    X = ConvBlockDown(X, num_filters=8)
-    level_1 = X
-    X = MaxPooling3D(pool_size=pool_size,
-                     name='max_pool1')(X)
-
-    # Level 2
-    X = ConvBlockDown(X, num_filters=16)
-    X = ConvBlockDown(X, num_filters=16)
-    level_2 = X
-    X = MaxPooling3D(pool_size=pool_size,
-                     name='max_pool2')(X)
-
-    # Level 3
-    X = ConvBlockDown(X, num_filters=32)
-    X = ConvBlockDown(X, num_filters=32)
-    level_3 = X
-    X = MaxPooling3D(pool_size=pool_size, name='max_pool3')(X)
-
-    # Lowest Level
-    X = ConvBlockDown(X, num_filters=32)
-    X = ConvBlockDown(X, num_filters=32)
-
-    # Up-convolutions
-    X = ConvBlockUp(X, level_3, num_filters=32)
-    X = ConvBlockUp(X, level_2, num_filters=16)
-    X = ConvBlockUp(X, level_1, num_filters=8)
-
-    # Create model.
-    model = Model(inputs=X_input, outputs=X, name='UNet')
-
-    final_convolution = Conv3D(1,
-                               (1, 1, 1),
-                               data_format="channels_first",
-                               strides=(1, 1, 1),
-                               padding='same')(X)
-    act = Activation("sigmoid")(final_convolution)
-    model = Model(inputs=X_input, outputs=act)
-
-    metrics = [dice_coefficient]
-    model.compile(optimizer=Adam(lr=learning_rate),
-                  loss=binary_crossentropy,
-                  metrics=metrics)
-    return model
-
-def get_test_data():
-    test_ids = get_test_ids()
-    num_test = len(test_ids)
-
-    brats = BraTS.DataSet(brats_root=brats_directory, year=2018)
-
-    test_mris = np.empty((num_test,) + mri_shape)
-    test_segs = np.empty((num_test,) + seg_shape)
-    for i, patient_id in enumerate(test_ids):
-        test_mris[i] = brats.train.patient(patient_id).mri
-        test_segs[i] = brats.train.patient(patient_id).seg
-    return test_mris, test_segs
+def fix_dims(mri, seg, out_mri, out_seg):
+    out_mri[0] = mri
+    out_seg[0, 0] = seg
+    return out_mri, out_seg
 
 
 def training_generator():
-    brats = BraTS.DataSet(brats_root=brats_directory, year=2018)
+    """
+    Generates training examples
+
+    :return: Yields a single MRI and segmentation pair
+    """
+    brats = BraTS.DataSet(brats_root=config.brats_directory, year=2018)
     patient_ids = list(get_training_ids())
 
     mri = np.empty((1,) + mri_shape)
-    seg = np.empty((1, 1,) + seg_shape)
+    seg = np.empty((1, 1) + seg_shape)
     
     while True:
         shuffle(patient_ids)
         for patient_id in patient_ids:
-            patient_dir = brats.train.directory_map[patient_id]
-            _mri, _seg = load_patient_data(patient_dir)
+            patient = brats.train.patient(patient_id)
+            _mri, _seg = patient.mri, patient.seg
             _seg[_seg >= 1] = 1
-            mri[0] = _mri
-            seg[0, 0] = _seg
-            yield mri, seg
 
-def train(model, validation_data):
-    callbacks = []
-    callbacks.append(ModelCheckpoint(save_file, save_best_only=True))
-    
-    tb_callback = TensorBoard(log_dir=tensorboard_dir,
-            histogram_freq=1,
-            write_graph=True)
-    callbacks.append(tb_callback)
+            yield fix_dims(_mri, _seg, mri, seg)
+            yield fix_dims(*random_flip(_mri, _seg), mri, seg)
+            yield fix_dims(*add_noise(_mri, _seg), mri, seg)
+            yield fix_dims(*blur(_mri, _seg), mri, seg)
 
-    model.fit_generator(generator=training_generator(),
-                        steps_per_epoch=205,
-                        epochs=num_epochs,
+
+def train(model):
+    """
+    Trains a model
+
+    :param model: The Keras model to train
+    :param test_data: Test/dev set
+    :return: None
+    """
+
+    metrics = [dice_coefficient]
+    model.compile(optimizer=Adam(lr=config.learning_rate),
+                  loss=dice_coefficient_loss,
+                  metrics=metrics)
+
+    checkpoint_callback = ModelCheckpoint(config.model_file,
+                                          save_best_only=True)
+
+    tb_callback = TrainValTensorBoard(log_dir=config.tensorboard_dir,
+                                      histogram_freq=0,
+                                      write_graph=True,
+                                      write_images=True)
+
+    callbacks = [tb_callback, checkpoint_callback]
+    model.fit_generator(generator=make_generator(get_training_ids(), augment=True),
+                        steps_per_epoch=4 * 205,
+                        epochs=config.num_epochs,
                         verbose=1,
-                        validation_data=validation_data,
+                        validation_data=make_generator(get_test_ids(), augment=False),
+                        nb_val_samples=40,
                         callbacks=callbacks)
-
 
 def parse_args():
     """
@@ -202,22 +125,21 @@ def parse_args():
     :return: An argparse object containing parsed arguments
     """
 
-    parser = argparse.ArgumentParser(description="Train tumor segmentation model",
+    parser = argparse.ArgumentParser(description="Train the tumor segmentation model",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     info_options = parser.add_argument_group("Info")
     info_options.add_argument("--job-dir", default=None, help="Job directory")
     info_options.add_argument("--job-name", default="BraTS", help="Job name")
     info_options.add_argument("-gcs", "--google-cloud", action='store_true', help="Running in Google Cloud")
-    info_options.add_argument("-aws", "--aws", action="store_true", help="Running in Amazon Web Services")
     info_options.add_argument("--config", help="Config file.")
 
     input_options = parser.add_argument_group("Input")
-    input_options.add_argument('--brats', help="BraTS root dataset directory")
+    input_options.add_argument('--brats', help="BraTS root data set directory")
     input_options.add_argument('--year', type=int, default=2018, help="BraTS year")
 
     output_options = parser.add_argument_group("Output")
-    output_options.add_argument("--save-file", help="File to save trained model in")
+    output_options.add_argument("--model-file", help="File to save trained model in")
 
     tensorboard_options = parser.add_argument_group("TensorBoard")
     tensorboard_options.add_argument("--tensorboard", help="TensorBoard directory")
@@ -258,42 +180,28 @@ def parse_args():
 def main():
     args = parse_args()
 
+    global config
+    if args.config is not None:
+        config = Configuration(config_file=args.config)
+    else:
+        config = Configuration()
+
     if args.google_cloud:
         logger.info("Running on Google Cloud.")
-    elif args.aws:
-        logger.info("Running in Amazon Web Services.")
-    else:
-        logger.debug("Running locally.")
 
-    if args.config is not None:
-        config.read(args.config)
-
-    global tensorboard_dir, save_file, brats_directory
-    brats_directory = os.path.expanduser(config["BraTS"]["root"])
-    tensorboard_dir = os.path.expanduser(config["TensorFlow"]["tensorboard-dir"])
-    save_file = os.path.expanduser(config["Output"]["save-file"])
-
-    logger.debug("BraTS directory: %s" % brats_directory)
-    logger.debug("TensorBoard Directory: %s" % tensorboard_dir)
-    logger.debug("Save file: %s" % save_file)
-
-    global learning_rate, num_epochs, mini_batch_size
-    learning_rate = float(config["Hyperparameters"]["learning-rate"])
-    num_epochs = int(config["Hyperparameters"]["epochs"])
-    mini_batch_size = int(config["Hyperparameters"]["mini-batch"])
-
-    logger.info("Learning rate: %s" % learning_rate)
-    logger.info("Num epochs: %s" % num_epochs)
-    logger.info("Mini-batch size: %s" % mini_batch_size)
+    logger.debug("BraTS data set directory: %s" % config.brats_directory)
 
     logger.info("Defining model.")
     model = UNet3D(mri_shape)
 
-    logger.info("Creating test data...")
-    # test_data = get_test_data()
+    logger.info("Initiating training.")
+    logger.debug("TensorBoard Directory: %s" % config.tensorboard_dir)
+    logger.debug("Model save file: %s" % config.model_file)
+    logger.debug("Learning rate: %s" % config.learning_rate)
+    logger.debug("Num epochs: %s" % config.num_epochs)
+    logger.debug("Mini-batch size: %s" % config.mini_batch_size)
 
-    logger.debug("Initiating training")
-    train(model, None)
+    train(model)
 
     logger.debug("Exiting.")
 

@@ -47,10 +47,10 @@ def get_test_data():
     brats = BraTS.DataSet(brats_root=config.brats_directory, year=2018)
 
     test_mris = np.empty((num_test,) + mri_shape)
-    test_segs = np.empty((num_test,) + seg_shape)
+    test_segs = np.empty((num_test, 1) + seg_shape)
     for i, patient_id in enumerate(test_ids):
         test_mris[i] = brats.train.patient(patient_id).mri
-        test_segs[i] = brats.train.patient(patient_id).seg
+        test_segs[i, 0] = brats.train.patient(patient_id).seg
     return test_mris, test_segs
 
 def fix_dims(mri, seg, out_mri, out_seg):
@@ -68,7 +68,7 @@ def training_generator():
     patient_ids = list(get_training_ids())
 
     mri = np.empty((1,) + mri_shape)
-    seg = np.empty((1, 1,) + seg_shape)
+    seg = np.empty((1, 1) + seg_shape)
     
     while True:
         shuffle(patient_ids)

@@ -29,6 +29,7 @@ from preprocessing.partitions import get_training_ids, get_test_ids
 from segmentation.model_UNet3D import UNet3D
 from segmentation.metrics import dice_coefficient_loss, dice_coefficient
 from segmentation.config import Configuration
+from segmentation.visualization import TrainValTensorBoard
 
 from augmentation.augmentation import blur, random_flip, add_noise
 
@@ -79,8 +80,8 @@ def training_generator():
 
             yield fix_dims(_mri, _seg, mri, seg)
             yield fix_dims(*random_flip(_mri, _seg), mri, seg)
-            yield fix_dims(*add_noise(mri, seg), mri, seg)
-            yield fix_dims(*blur(mri, seg), mri, seg)
+            yield fix_dims(*add_noise(_mri, _seg), mri, seg)
+            yield fix_dims(*blur(_mri, _seg), mri, seg)
 
 
 def train(model, test_data):
@@ -100,11 +101,10 @@ def train(model, test_data):
     checkpoint_callback = ModelCheckpoint(config.model_file,
                                           save_best_only=True)
 
-    tb_callback = TensorBoard(log_dir=config.tensorboard_dir,
-                              histogram_freq=1,
-                              write_graph=True,
-                              write_images=True)
-
+    tb_callback = TrainValTensorBoard(log_dir=config.tensorboard_dir,
+                                      histogram_freq=1,
+                                      write_graph=True,
+                                      write_images=True)
 
     callbacks = [tb_callback, checkpoint_callback]
     model.fit_generator(generator=training_generator(),

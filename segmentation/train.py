@@ -17,6 +17,7 @@ import logging
 import numpy as np
 from random import shuffle
 
+from keras.callbacks import Callback
 from keras.optimizers import Adam
 from keras.losses import binary_crossentropy
 from keras.callbacks import TensorBoard, ModelCheckpoint
@@ -83,9 +84,36 @@ def training_generator():
             _seg[_seg >= 1] = 1
 
             yield fix_dims(_mri, _seg, mri, seg)
-            yield fix_dims(*random_flip(_mri, _seg), mri, seg)
-            yield fix_dims(*add_noise(_mri, _seg), mri, seg)
-            yield fix_dims(*blur(_mri, _seg), mri, seg)
+            # yield fix_dims(*random_flip(_mri, _seg), mri, seg)
+            # yield fix_dims(*add_noise(_mri, _seg), mri, seg)
+            # yield fix_dims(*blur(_mri, _seg), mri, seg)
+
+
+class histogram_Callback(Callback):
+
+    def __init__(self, model, file="weights.csv", **kwargs):
+        self.model = model
+        self.file = file
+
+        super(Callback, self).__init__(**kwargs)
+
+    def  on_batch_end(self, batch, logs=None):
+        logs = logs or {}
+
+        with open(self.file, 'w') as f:
+            f.write("%d\t" % batch)
+            for layer in self.model.layers:
+                weights, biases = self.model.layers[0].get_weights()
+
+                weights_mean = np.mean(weights)
+                weights_std = np.std(weights)
+
+                bias_mean = np.mean(biases)
+                bias_std = np.std(biases)
+
+                f.write("layer: %s, %s %s %s %s\t" % (layer,
+                        weights_mean, weights_std, bias_mean, bias_std))
+            f.write("\n")
 
 
 def train(model):
@@ -99,7 +127,7 @@ def train(model):
 
     metrics = [dice_coefficient]
     model.compile(optimizer=Adam(lr=config.learning_rate),
-                  loss=dice_coefficient_loss,
+                  loss=binary_crossentropy,
                   metrics=metrics)
 
     checkpoint_callback = ModelCheckpoint(config.model_file,

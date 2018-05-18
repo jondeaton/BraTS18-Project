@@ -8,6 +8,8 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 import os
 import pandas as pd
 
+import tensorflow as tf
+from tensorflow.python.lib.io import file_io
 
 def load_survival(survival_csv):
     """
@@ -51,7 +53,7 @@ def find_file_containing(directory, keyword, case_sensitive=False):
     assert isinstance(directory, str)
     assert isinstance(keyword, str)
 
-    if not os.path.isdir(directory):
+    if not file_io.is_directory(directory):
         raise FileNotFoundError(directory)
 
     # Iterate through files

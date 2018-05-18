@@ -94,12 +94,10 @@ class histogram_Callback(Callback):
     def __init__(self, model, file="weights.csv", **kwargs):
         self.model = model
         self.file = file
-
         super(Callback, self).__init__(**kwargs)
 
     def  on_batch_end(self, batch, logs=None):
         logs = logs or {}
-
         with open(self.file, 'w') as f:
             f.write("%d\t" % batch)
             for layer in self.model.layers:
@@ -127,7 +125,7 @@ def train(model):
 
     metrics = [dice_coefficient]
     model.compile(optimizer=Adam(lr=config.learning_rate),
-                  loss=binary_crossentropy,
+                  loss=dice_coefficient_loss,
                   metrics=metrics)
 
     checkpoint_callback = ModelCheckpoint(config.model_file,
@@ -140,12 +138,13 @@ def train(model):
 
     callbacks = [tb_callback, checkpoint_callback]
     model.fit_generator(generator=make_generator(get_training_ids(), augment=True),
-                        steps_per_epoch=4 * 205,
+                        steps_per_epoch=205,
                         epochs=config.num_epochs,
                         verbose=1,
                         validation_data=make_generator(get_test_ids(), augment=False),
                         nb_val_samples=40,
                         callbacks=callbacks)
+
 
 def parse_args():
     """

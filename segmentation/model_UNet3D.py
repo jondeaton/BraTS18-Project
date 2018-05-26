@@ -12,7 +12,7 @@ from keras import Input
 from keras.models import Model
 from keras.layers import Activation, Conv3D, MaxPooling3D
 from keras.layers import BatchNormalization, Concatenate, UpSampling3D
-
+from keras.initializers import glorot_uniform, glorot_normal
 
 def ConvBlockDown(input_layer, num_filters=32):
     strides = (1, 1, 1)
@@ -22,6 +22,8 @@ def ConvBlockDown(input_layer, num_filters=32):
                    kernel,
                    data_format="channels_first",
                    strides=strides,
+                   kernel_initializer=glorot_normal,
+                   bias_initializer=glorot_uniform,
                    padding='same')(input_layer)
     layer = BatchNormalization(axis=1)(layer)
     return Activation('relu')(layer)
@@ -39,12 +41,16 @@ def ConvBlockUp(input_layer, concat, num_filters=32):
                kernel,
                data_format="channels_first",
                strides=strides,
+               kernel_initializer=glorot_normal,
+               bias_initializer=glorot_uniform,
                padding='same')(X)
 
     X = Conv3D(num_filters,
                kernel,
                data_format="channels_first",
                strides=strides,
+               kernel_initializer=glorot_normal,
+               bias_initializer=glorot_uniform,
                padding='same')(X)
     return X
 
@@ -99,6 +105,8 @@ def UNet3D(input_shape, filter_start=4, pool_size=(2, 2, 2)):
                                (1, 1, 1),
                                data_format="channels_first",
                                strides=(1, 1, 1),
+                               kernel_initializer=glorot_normal,
+                               bias_initializer=glorot_uniform,
                                padding='same')(X)
     act = Activation("sigmoid")(final_convolution)
     model = Model(inputs=X_input, outputs=act)

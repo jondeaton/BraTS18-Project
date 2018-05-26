@@ -17,6 +17,7 @@ import logging
 import numpy as np
 from random import shuffle
 
+from keras.callbacks import Callback
 from keras.optimizers import Adam
 from keras.losses import binary_crossentropy
 from keras.callbacks import TensorBoard, ModelCheckpoint
@@ -32,6 +33,10 @@ from segmentation.config import Configuration
 from segmentation.visualization import TrainValTensorBoard
 
 from augmentation.augmentation import blur, random_flip, add_noise
+
+import math
+from keras.callbacks import LearningRateScheduler
+from functools import partial
 
 logger = logging.getLogger()
 
@@ -83,9 +88,34 @@ def training_generator():
             _seg[_seg >= 1] = 1
 
             yield fix_dims(_mri, _seg, mri, seg)
-            yield fix_dims(*random_flip(_mri, _seg), mri, seg)
-            yield fix_dims(*add_noise(_mri, _seg), mri, seg)
-            yield fix_dims(*blur(_mri, _seg), mri, seg)
+            # yield fix_dims(*random_flip(_mri, _seg), mri, seg)
+            # yield fix_dims(*add_noise(_mri, _seg), mri, seg)
+            # yield fix_dims(*blur(_mri, _seg), mri, seg)
+
+
+class histogram_Callback(Callback):
+
+    def __init__(self, model, file="weights.csv", **kwargs):
+        self.model = model
+        self.file = file
+        super(Callback, self).__init__(**kwargs)
+
+    def  on_batch_end(self, batch, logs=None):
+        logs = logs or {}
+        with open(self.file, 'w') as f:
+            f.write("%d\t" % batch)
+            for layer in self.model.layers:
+                weights, biases = self.model.layers[0].get_weights()
+
+                weights_mean = np.mean(weights)
+                weights_std = np.std(weights)
+
+                bias_mean = np.mean(biases)
+                bias_std = np.std(biases)
+
+                f.write("layer: %s, %s %s %s %s\t" % (layer,
+                        weights_mean, weights_std, bias_mean, bias_std))
+            f.write("\n")
 
 
 def train(model):
@@ -98,7 +128,9 @@ def train(model):
     """
 
     metrics = [dice_coefficient]
-    model.compile(optimizer=Adam(lr=config.learning_rate),
+    model.compile(optimizer=Adam(lr=config.learning_rate,
+                                 decay=0.),
+
                   loss=dice_coefficient_loss,
                   metrics=metrics)
 
@@ -110,14 +142,23 @@ def train(model):
                                       write_graph=True,
                                       write_images=True)
 
-    callbacks = [tb_callback, checkpoint_callback]
+    def step_decay(epoch, initial_lrate, drop, epochs_drop):
+        return initial_lrate * math.pow(drop, math.floor((1 + epoch) / float(epochs_drop)))
+
+    lrs = LearningRateScheduler(partial(step_decay,
+                                        initial_lrate=config.learning_rate,
+                                        drop=0.5,
+                                        epochs_drop=None))
+
+    callbacks = [tb_callback, checkpoint_callback, lrs]
     model.fit_generator(generator=make_generator(get_training_ids(), augment=True),
-                        steps_per_epoch=4 * 205,
+                        steps_per_epoch=205,
                         epochs=config.num_epochs,
                         verbose=1,
                         validation_data=make_generator(get_test_ids(), augment=False),
                         nb_val_samples=40,
                         callbacks=callbacks)
+
 
 def parse_args():
     """

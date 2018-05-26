@@ -8,7 +8,6 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 import os
 import pandas as pd
 
-
 def load_survival(survival_csv):
     """
     Loads a survival CSV file
@@ -51,7 +50,7 @@ def find_file_containing(directory, keyword, case_sensitive=False):
     assert isinstance(directory, str)
     assert isinstance(keyword, str)
 
-    if not os.path.isdir(directory):
+    if not file_io.is_directory(directory):
         raise FileNotFoundError(directory)
 
     # Iterate through files

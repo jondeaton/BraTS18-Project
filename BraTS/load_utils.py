@@ -8,9 +8,6 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 import os
 import pandas as pd
 
-import tensorflow as tf
-from tensorflow.python.lib.io import file_io
-
 def load_survival(survival_csv):
     """
     Loads a survival CSV file

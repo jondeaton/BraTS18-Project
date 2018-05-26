@@ -18,7 +18,6 @@ class DataSubsetType(Enum):
     validation = 3
 
 
-
 def get_brats_subset_directory(brats_dataset_dir, data_set_type):
     if data_set_type == DataSubsetType.train:
         # Training data

@@ -34,6 +34,10 @@ from segmentation.visualization import TrainValTensorBoard
 
 from augmentation.augmentation import blur, random_flip, add_noise
 
+import math
+from keras.callbacks import LearningRateScheduler
+from functools import partial
+
 logger = logging.getLogger()
 
 
@@ -124,7 +128,9 @@ def train(model):
     """
 
     metrics = [dice_coefficient]
-    model.compile(optimizer=Adam(lr=config.learning_rate),
+    model.compile(optimizer=Adam(lr=config.learning_rate,
+                                 decay=0.),
+
                   loss=dice_coefficient_loss,
                   metrics=metrics)
 
@@ -136,7 +142,15 @@ def train(model):
                                       write_graph=True,
                                       write_images=True)
 
-    callbacks = [tb_callback, checkpoint_callback]
+    def step_decay(epoch, initial_lrate, drop, epochs_drop):
+        return initial_lrate * math.pow(drop, math.floor((1 + epoch) / float(epochs_drop)))
+
+    lrs = LearningRateScheduler(partial(step_decay,
+                                        initial_lrate=config.learning_rate,
+                                        drop=0.5,
+                                        epochs_drop=None))
+
+    callbacks = [tb_callback, checkpoint_callback, lrs]
     model.fit_generator(generator=make_generator(get_training_ids(), augment=True),
                         steps_per_epoch=205,
                         epochs=config.num_epochs,

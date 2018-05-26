@@ -56,8 +56,7 @@ def load_patient_data_inplace(patient_data_dir, mri_array, seg_array, index):
 
 
 class Patient:
-
-    def __init__(self, id, age=None, survival=None, mri=None, seg=None, dir=None):
+    def __init__(self, id, age=None, survival=None, mri=None, seg=None):
         self.id = id
         self.age = age
         self.survival = survival

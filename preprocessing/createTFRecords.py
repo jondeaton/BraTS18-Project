@@ -18,60 +18,24 @@ built on top of the BraTS loader module
 Better solution: use GZIP format for the TFRecords and it stays like 2GB
 """
 
+import os
 import sys
 import argparse
 import logging
-
-import numpy as np
 import multiprocessing as mp
 
-from preprocessing.partitions import *
-from preprocessing.partitioning import *
-from .records import get_TFRecord_filename
+import BraTS
+from preprocessing.partitions import make_tfrecord
 
 logger = logging.getLogger()
 pool_size = 8  # Pool of worker processes
 
 
-def parse_tfrecord(filename):
-    image_string = tf.read_file(filename)
-    image_decoded = tf.image.decode_image(image_string)
-    image_resized = tf.image.resize_images(image_decoded, [28, 28])
-    return image_resized, label
+def _make_tfrecord_shell(args):
+    make_tfrecord(*args)
 
 
-def transform_patient_shell(args):
-    transform_patient(*args)
-
-
-def transform_patient(brats_root, year, output_directory, patient_id):
-
-    logger.info("Transforming: %s" % patient_id)
-
-    # Load the patient data
-    brats = BraTS.DataSet(brats_root=brats_root, year=year)
-    patient = brats.train.patient(patient_id)
-
-    # Gotta compress it to a 1D array first :/
-    mri_list = np.reshape(patient.mri, newshape=(np.prod(patient.mri.shape, )))
-    seg_list = np.reshape(patient.seg, newshape=(np.prod(patient.seg.shape, )))
-
-    # Put it into a numpy feature
-    mri = tf.train.Feature(float_list=tf.train.FloatList(value=mri_list))
-    seg = tf.train.Feature(int64_list=tf.train.Int64List(value=seg_list))
-
-    # Convert it into some TensorFlow
-    feature = {'train/mri': mri, 'train/seg': seg}
-    example = tf.train.Example(features=tf.train.Features(feature=feature))
-
-    # Write it to file (compressed)
-    tf_record_filename = os.path.join(output_directory, get_TFRecord_filename(patient_id))
-    options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
-    with tf.python_io.TFRecordWriter(tf_record_filename, options=options) as writer:
-        writer.write(example.SerializeToString())
-
-
-def transform_brats(brats_root, year, output_directory, ids):
+def make_tfrecords(brats_root, year, output_directory, ids, sequential=False):
     if not os.path.isdir(output_directory):
         logger.debug("Creating output directory: %s" % output_directory)
         try:
@@ -79,9 +43,13 @@ def transform_brats(brats_root, year, output_directory, ids):
         except FileExistsError:
             logger.debug("Output directory exists: %s" % output_directory)
 
-    pool = mp.Pool(pool_size)
-    arg_list = [(brats_root, year, output_directory, patient_id) for patient_id in ids]
-    pool.map(transform_patient_shell, arg_list)
+    if sequential:
+        for patient_id in ids:
+            make_tfrecord(brats_root, year, output_directory, patient_id)
+    else:
+        pool = mp.Pool(pool_size)
+        arg_list = [(brats_root, year, output_directory, patient_id) for patient_id in ids]
+        pool.map(_make_tfrecord_shell, arg_list)
 
 
 def parse_args():
@@ -95,15 +63,16 @@ def parse_args():
 
     io_options_group = parser.add_argument_group("I/O")
     io_options_group.add_argument('--brats', required=True, help="BraTS root dataset directory")
-    io_options_group.add_argument('--year', required=True, type=int, default=default_brats_year, help="BraTS year")
+    io_options_group.add_argument('--year', required=True, type=int, help="BraTS year")
     io_options_group.add_argument('--output', required=True, help="Output directory of dataset")
 
     general_options_group = parser.add_argument_group("General")
     general_options_group.add_argument("--pool-size", type=int, default=8, help="Size of worker process pool")
+    general_options_group.add_argument("-seq", "--sequential", action='store_true', help="Sequentially")
 
     logging_options_group = parser.add_argument_group("Logging")
     logging_options_group.add_argument('--log', dest="log_level", default="WARNING", help="Logging level")
-    logging_options_group.add_argument('--log-file', default="convert.log", help="Log file")
+    logging_options_group.add_argument('--log-file', default="createTFRecords.log", help="Log file")
 
     args = parser.parse_args()
 
@@ -157,7 +126,7 @@ def main():
         logger.debug("Output directory: %s" % output_dir)
 
     brats = BraTS.DataSet(brats_root=brats_root, year=args.year)
-    transform_brats(brats_root, args.year, output_dir, brats.train.ids)
+    make_tfrecords(brats_root, args.year, output_dir, brats.train.ids, sequential=args.sequential)
 
 
 if __name__ == "__main__":

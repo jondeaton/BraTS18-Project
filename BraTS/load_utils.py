@@ -50,7 +50,7 @@ def find_file_containing(directory, keyword, case_sensitive=False):
     assert isinstance(directory, str)
     assert isinstance(keyword, str)
 
-    if not file_io.is_directory(directory):
+    if not os.path.isdir(directory):
         raise FileNotFoundError(directory)
 
     # Iterate through files

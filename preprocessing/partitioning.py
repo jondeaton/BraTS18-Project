@@ -24,7 +24,7 @@ test_ids_filename = "test_ids"
 validation_ids_filename = "validation_ids"
 
 default_partition_store = os.path.join(os.path.split(__file__)[0], "BraTS_partition")
-default_brats_year=2018
+default_brats_year = 2018
 
 
 def generate_random_partitioning(brats_root, output_dir, year, num_test=40, num_validation=40):
@@ -68,21 +68,33 @@ def generate_random_partitioning(brats_root, output_dir, year, num_test=40, num_
 
 
 # Functions for retrieving the partition, once generated
-def get_training_ids(partitioning_dir=default_partition_store):
-    train_ids_file = os.path.join(partitioning_dir, train_ids_filename)
-    return get_ids(train_ids_file)
+def get_all_partition_ids(partition_dir=default_partition_store):
+    train_ids = get_training_ids(partition_dir)
+    test_ids = get_test_ids(partition_dir)
+    validation_ids = get_validation_ids(partition_dir)
+    return train_ids, test_ids, validation_ids
+
+def get_training_ids(partition_dir=default_partition_store):
+    train_ids_file = os.path.join(partition_dir, train_ids_filename)
+    return _get_ids(train_ids_file)
 
 
-def get_test_ids(partitioning_dir=default_partition_store):
-    test_ids_file = os.path.join(partitioning_dir, test_ids_filename)
-    return get_ids(test_ids_file)
+def get_test_ids(partition_dir=default_partition_store):
+    test_ids_file = os.path.join(partition_dir, test_ids_filename)
+    return _get_ids(test_ids_file)
 
 
-def get_validation_ids(partitioning_dir=default_partition_store):
-    validation_ids_file = os.path.join(partitioning_dir, validation_ids_filename)
-    return get_ids(validation_ids_file)
+def get_validation_ids(partition_dir=default_partition_store):
+    validation_ids_file = os.path.join(partition_dir, validation_ids_filename)
+    return _get_ids(validation_ids_file)
 
-def get_ids(ids_file):
+
+def _get_ids(ids_file):
+    """
+    Returns a list of IDs found in an ID file
+    :param ids_file: Path to a file containing tab/space/line seperated IDs
+    :return: A set of IDs
+    """
     assert isinstance(ids_file, str)
     if not os.path.exists(ids_file):
         raise FileNotFoundError(ids_file)

@@ -9,155 +9,83 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import os
 import sys
 import argparse
 import logging
+import tensorflow as tf
 
-import numpy as np
-from random import shuffle
-
-from keras.callbacks import Callback
-from keras.optimizers import Adam
-from keras.losses import binary_crossentropy
-from keras.callbacks import TensorBoard, ModelCheckpoint
-
-import BraTS
-from BraTS.Patient import load_patient_data
-from BraTS.modalities import mri_shape, seg_shape
-from preprocessing.partitions import get_training_ids, get_test_ids
-
-from segmentation.model_UNet3D import UNet3D
-from segmentation.metrics import dice_coefficient_loss, dice_coefficient
+from preprocessing.partitions import load_tfrecord_datasets
+from augmentation.augmentation import augment_training_set
+import segmentation.UNet3D as UNet
+from segmentation.metrics import dice_coeff, dice_loss
 from segmentation.config import Configuration
-from segmentation.visualization import TrainValTensorBoard
-
-from augmentation.augmentation import blur, random_flip, add_noise
-
-import math
-from keras.callbacks import LearningRateScheduler
-from functools import partial
 
 logger = logging.getLogger()
 
 
-def make_generator(patient_ids, augment=False):
-    patient_ids = list(patient_ids)
-    brats = BraTS.DataSet(brats_root=config.brats_directory, year=2018)
-    mri = np.empty((1,) + mri_shape)
-    seg = np.empty((1, 1) + seg_shape)
+def train(train_dataset, test_dataset):
 
-    while True:
-        shuffle(patient_ids)
-        for patient_id in patient_ids:
-            patient = brats.train.patient(patient_id)
-            _mri, _seg = patient.mri, patient.seg
-            _seg[_seg >= 1] = 1
+    # Set up training dataset iterator
+    train_iterator = train_dataset.make_initializable_iterator()
+    test_iterator = test_dataset.make_initializable_iterator()
 
-            yield fix_dims(_mri, _seg, mri, seg)
-            if augment:
-                yield fix_dims(*random_flip(_mri, _seg), mri, seg)
-                yield fix_dims(*add_noise(_mri, _seg), mri, seg)
-                yield fix_dims(*blur(_mri, _seg), mri, seg)
-            brats.train.drop_cache()
+    # Input and ground truth segmentations
+    input, seg = train_iterator.get_next()
 
+    # Create the model's computation graph and cost function
+    output, is_training = UNet.model(input, seg)
+    dice = dice_coeff(seg, output)
+    cost = - dice
 
-def fix_dims(mri, seg, out_mri, out_seg):
-    out_mri[0] = mri
-    out_seg[0, 0] = seg
-    return out_mri, out_seg
+    # Define optimization strategy
+    sgd = tf.train.AdamOptimizer(learning_rate=config.learning_rate, name="gradient-descent")
+    global_step = tf.Variable(0, name='global_step', trainable=False)
+    optimizer = sgd.minimize(cost, name='optimizer', global_step=global_step)
 
+    logger.info("Training...")
+    init = tf.global_variables_initializer()
+    with tf.Session() as sess:
 
-def training_generator():
-    """
-    Generates training examples
+        # Initialize graph and data iterators
+        sess.run(init)
+        sess.run(train_iterator.initializer)
+        sess.run(test_iterator.initializer)
 
-    :return: Yields a single MRI and segmentation pair
-    """
-    brats = BraTS.DataSet(brats_root=config.brats_directory, year=2018)
-    patient_ids = list(get_training_ids())
+        # Configure up TensorBard
+        tf.summary.scalar('test_dice', dice)
+        tf.summary.histogram("test_dice", dice)
+        tf.summary.scalar('training_cost', cost)
+        merged_summary = tf.summary.merge_all()
+        writer = tf.summary.FileWriter(logdir=config.tensorboard_dir)
+        writer.add_graph(sess.graph)
 
-    mri = np.empty((1,) + mri_shape)
-    seg = np.empty((1, 1) + seg_shape)
-    
-    while True:
-        shuffle(patient_ids)
-        for patient_id in patient_ids:
-            patient_dir = brats.train.directory_map[patient_id]
-            _mri, _seg = load_patient_data(patient_dir)
-            _seg[_seg >= 1] = 1
+        # Training epochs
+        for epoch in range(config.num_epochs):
+            logger.info("Epoch: %d" % epoch)
+            epoch_cost = 0.0
 
-            yield fix_dims(_mri, _seg, mri, seg)
-            # yield fix_dims(*random_flip(_mri, _seg), mri, seg)
-            # yield fix_dims(*add_noise(_mri, _seg), mri, seg)
-            # yield fix_dims(*blur(_mri, _seg), mri, seg)
+            # Iterate through all batches in the epoch
+            batch = 0
+            while True:
+                try:
+                    c, _, d = sess.run([cost, optimizer, dice], feed_dict={is_training: True})
 
+                    logger.info("Batch %d: cost: %f, dice: %f" % (batch, c, d))
+                    epoch_cost += epoch_cost / config.num_epochs
+                    batch += 1
 
-class histogram_Callback(Callback):
+                except tf.errors.OutOfRangeError:
+                    break
 
-    def __init__(self, model, file="weights.csv", **kwargs):
-        self.model = model
-        self.file = file
-        super(Callback, self).__init__(**kwargs)
+            s = sess.run(merged_summary)
+            writer.add_summary(s, epoch)
 
-    def  on_batch_end(self, batch, logs=None):
-        logs = logs or {}
-        with open(self.file, 'w') as f:
-            f.write("%d\t" % batch)
-            for layer in self.model.layers:
-                weights, biases = self.model.layers[0].get_weights()
+        logger.info("Training complete.")
 
-                weights_mean = np.mean(weights)
-                weights_std = np.std(weights)
-
-                bias_mean = np.mean(biases)
-                bias_std = np.std(biases)
-
-                f.write("layer: %s, %s %s %s %s\t" % (layer,
-                        weights_mean, weights_std, bias_mean, bias_std))
-            f.write("\n")
-
-
-def train(model):
-    """
-    Trains a model
-
-    :param model: The Keras model to train
-    :param test_data: Test/dev set
-    :return: None
-    """
-
-    metrics = [dice_coefficient]
-    model.compile(optimizer=Adam(lr=config.learning_rate,
-                                 decay=0.),
-
-                  loss=dice_coefficient_loss,
-                  metrics=metrics)
-
-    checkpoint_callback = ModelCheckpoint(config.model_file,
-                                          save_best_only=True)
-
-    tb_callback = TrainValTensorBoard(log_dir=config.tensorboard_dir,
-                                      histogram_freq=0,
-                                      write_graph=True,
-                                      write_images=True)
-
-    def step_decay(epoch, initial_lrate, drop, epochs_drop):
-        return initial_lrate * math.pow(drop, math.floor((1 + epoch) / float(epochs_drop)))
-
-    lrs = LearningRateScheduler(partial(step_decay,
-                                        initial_lrate=config.learning_rate,
-                                        drop=0.5,
-                                        epochs_drop=None))
-
-    callbacks = [tb_callback, checkpoint_callback, lrs]
-    model.fit_generator(generator=make_generator(get_training_ids(), augment=True),
-                        steps_per_epoch=205,
-                        epochs=config.num_epochs,
-                        verbose=1,
-                        validation_data=make_generator(get_test_ids(), augment=False),
-                        nb_val_samples=40,
-                        callbacks=callbacks)
+        logger.info("Saving model to: %s" % config.model_file)
+        saver = tf.train.Saver()
+        saver.save(sess, config.model_file, global_step=global_step)
+        logger.info("Done saving model.")
 
 
 def parse_args():
@@ -202,7 +130,7 @@ def parse_args():
 
     log_formatter = logging.Formatter('[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
 
-    # For the log file...
+    # Log to file if not on google cloud
     if not args.google_cloud:
         file_handler = logging.FileHandler(args.log_file)
         file_handler.setFormatter(log_formatter)
@@ -221,30 +149,36 @@ def parse_args():
 def main():
     args = parse_args()
 
+    if args.google_cloud:
+        logger.info("Running on Google Cloud.")
+
     global config
     if args.config is not None:
         config = Configuration(config_file=args.config)
     else:
         config = Configuration()
 
-    if args.google_cloud:
-        logger.info("Running on Google Cloud.")
+    # Set random seed for reproducible results
+    tf.set_random_seed(config.seed)
 
+    logger.info("Creating data pre-processing pipeline...")
     logger.debug("BraTS data set directory: %s" % config.brats_directory)
+    logger.debug("TFRecords: %s" % config.tfrecords_dir)
 
-    logger.info("Defining model.")
-    model = UNet3D(mri_shape)
+    train_dataset, test_dataset, validation_dataset = load_tfrecord_datasets(config.tfrecords_dir)
+    train_dataset_aug = augment_training_set(train_dataset)
+    train_dataset_aug.shuffle().repeat(config.num_epochs)
+    train_dataset_aug.batch(config.mini_batch_size)
 
-    logger.info("Initiating training.")
+    logger.info("Initiating training...")
     logger.debug("TensorBoard Directory: %s" % config.tensorboard_dir)
     logger.debug("Model save file: %s" % config.model_file)
     logger.debug("Learning rate: %s" % config.learning_rate)
     logger.debug("Num epochs: %s" % config.num_epochs)
     logger.debug("Mini-batch size: %s" % config.mini_batch_size)
+    train(train_dataset_aug, test_dataset)
 
-    train(model)
-
-    logger.debug("Exiting.")
+    logger.info("Exiting.")
 
 
 if __name__ == "__main__":

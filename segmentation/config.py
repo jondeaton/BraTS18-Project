@@ -11,6 +11,7 @@ import configparser
 dir_name = os.path.dirname(__file__)
 default_config_file = os.path.join(dir_name, "train_config.ini")
 
+
 class Configuration(object):
 
     def __init__(self, config_file=default_config_file):
@@ -21,6 +22,7 @@ class Configuration(object):
         c = self._config
 
         self.brats_directory = os.path.expanduser(c["BraTS"]["root"])
+        self.tfrecords_dir = os.path.expanduser(c["BraTS"]["TFRecords"])
         self.tensorboard_dir = os.path.expanduser(c["TensorFlow"]["tensorboard-dir"])
         self.model_file = os.path.expanduser(c["Output"]["save-file"])
 

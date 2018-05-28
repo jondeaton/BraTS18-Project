@@ -73,7 +73,7 @@ def train(train_dataset, test_dataset):
     learning_rate = tf.train.exponential_decay(config.learning_rate, global_step=global_step,
                                                decay_steps=100000, decay_rate=config.learning_decay_rate,
                                                staircase=False, name="learning_rate")
-    sgd = tf.train.AdamOptimizer(learning_rate=learning_rate, name="Adam")
+    sgd = tf.train.GradientDescentOptimizer(learning_rate=learning_rate, name="Adam")
     optimizer = sgd.minimize(cost, name='optimizer', global_step=global_step)
 
     logger.info("Training...")

@@ -128,9 +128,11 @@ def train(train_dataset, test_dataset):
                     batch += 1
 
                     if batch % 5 == 0:
+                        logger.info("Writing TensorBoard data...")
                         s = sess.run(merged_summary, feed_dict={is_training: False,
                                                                 dataset_handle: test_handle})
                         writer.add_summary(s, epoch)
+                        writer.flush()
 
                 except tf.errors.OutOfRangeError:
                     break

@@ -12,6 +12,26 @@ the recent emergence of effective computer vision methods, notably convolutional
 accuracy of segmentation. We propose using capsule networks to perform segmentation of brain 
 tumors in MR images.
 
+### Instalation
+
+Install the required dependencies
+
+    python setup.py install
+
+### Usage
+
+To train 
+
+    python -m segmentation.train
+    
+To create TFRecord files
+
+    python -m preprocessing.createTFRecords --brats ~/Datasets/BraTS/ --year 2018 --output ~/Datasets/BraTS/TFRecords
+
+Make sure that you are only using 1 GPU
+    
+    export CUDA_VISIBLE_DEVICES=1
+
 
 #### BraTS Data Loader
 

@@ -71,8 +71,8 @@ def augment_training_set(train_dataset):
 
 
 def _flip(mri, seg, axis):
-    flipped_mri = tf.reverse(mri, axis=axis)
-    flipped_seg = tf.reverse(seg, axis=axis)
+    flipped_mri = tf.reverse(mri, axis=[axis])
+    flipped_seg = tf.reverse(seg, axis=[axis])
     return flipped_mri, flipped_seg
 
 

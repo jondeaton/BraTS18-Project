@@ -148,7 +148,7 @@ def train(train_dataset, test_dataset):
                         logger.info("Logging TensorBoard data...")
                         # Write out stats for training
                         s = sess.run(merged_summary, feed_dict={is_training: False,
-                                                                dataset_handle: train_dataset})
+                                                                dataset_handle: train_handle})
                         writer.add_summary(s, global_step=global_step)
 
                         # Generate stats for test dataset
@@ -162,7 +162,7 @@ def train(train_dataset, test_dataset):
                             sess.run([dice, test_dice_summary, test_dice_avg_summary],
                                      feed_dict={is_training: False,
                                                 dataset_handle: test_handle})
-                        
+
                         writer.add_summary(test_dice_summ, global_step=global_step)
                         writer.add_summary(test_dice_avg_summ, global_step=global_step)
 

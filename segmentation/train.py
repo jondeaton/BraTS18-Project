@@ -49,6 +49,10 @@ def create_data_pipeline():
     train_aug = train_aug.batch(config.mini_batch_size)
     train_aug = train_aug.prefetch(buffer_size=config.prefetch_buffer_size)
 
+    # Shuffle/batch test dataset
+    test_dataset = test_dataset.shuffle(config.shuffle_buffer_size)
+    test_dataset = test_dataset.batch(config.mini_batch_size)
+
     return train_aug, test_dataset, validation_dataset
 
 

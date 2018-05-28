@@ -51,6 +51,14 @@ def augment_training_set(train_dataset):
     assert isinstance(train_dataset, tf.data.Dataset)
 
     with tf.variable_scope("augmentation"):
+
+        noisy = train_dataset.map(_add_noise)
+        train_dataset = train_dataset.concatenate(noisy)
+
+        # todo: fix blurring augmentation
+        # blurred = train_dataset.map(blur)
+        # train_dataset.concatenate(blurred)
+
         flipped_lr = train_dataset.map(_flip_left_right)
         flipped_ud = train_dataset.map(_flip_up_down)
         flipped_fb = train_dataset.map(_flip_front_back)
@@ -59,13 +67,6 @@ def augment_training_set(train_dataset):
             .concatenate(flipped_lr)\
             .concatenate(flipped_ud)\
             .concatenate(flipped_fb)
-
-        noisy = train_dataset.map(add_noise)
-        train_dataset = train_dataset.concatenate(noisy)
-
-        # todo: fix blurring augmentation
-        # blurred = train_dataset.map(blur)
-        # train_dataset.concatenate(blurred)
 
     return train_dataset
 
@@ -89,9 +90,8 @@ def _flip_front_back(mri, seg):
 
 
 def _add_noise(mri, seg):
-    std = tf.nn.moments(mri, axes=[0, 1, 2, 3])
-    noise = tf.random_normal(shape=tf.shape(mri), mean=0.0, stddev=std, dtype=tf.float32)
-
+    mean, std = tf.nn.moments(mri, axes=[0, 1, 2, 3])
+    noise = tf.random_normal(shape=mri.shape, mean=0.0, stddev=std, dtype=tf.float32)
     non_zero = tf.not_equal(mri, tf.constant(0, dtype=tf.float32))
     _mri = tf.where(non_zero, mri + noise, mri)
-    return mri, seg
+    return _mri, seg

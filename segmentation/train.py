@@ -41,12 +41,16 @@ def create_data_pipeline():
     test_dataset = test_dataset.map(_crop)
     validation_dataset = validation_dataset.map(_crop)
 
-    train_dataset_aug = augment_training_set(train_dataset)
-    train_dataset_aug.shuffle(8).repeat(config.num_epochs)
-    train_dataset_aug.batch(config.mini_batch_size)
+    # Dataset augmentation
+    train_aug = augment_training_set(train_dataset)
 
-    return train_dataset, test_dataset, validation_dataset
+    # Shuffle, repeat, batch, prefetch the training dataset
+    train_aug = train_aug.shuffle(config.shuffle_buffer_size)
+    train_aug = train_aug.repeat(config.num_epochs)
+    train_aug = train_aug.batch(config.mini_batch_size)
+    train_aug = train_aug.prefetch(buffer_size=config.prefetch_buffer_size)
 
+    return train_aug, test_dataset, validation_dataset
 
 
 def train(train_dataset, test_dataset):
@@ -87,7 +91,6 @@ def train(train_dataset, test_dataset):
 
         # Training epochs
         for epoch in range(config.num_epochs):
-            logger.info("Epoch: %d" % epoch)
             epoch_cost = 0.0
 
             # Iterate through all batches in the epoch
@@ -96,7 +99,7 @@ def train(train_dataset, test_dataset):
                 try:
                     c, _, d = sess.run([cost, optimizer, dice], feed_dict={is_training: True})
 
-                    logger.info("Batch %d: cost: %f, dice: %f" % (batch, c, d))
+                    logger.info("Epoch: %d, Batch %d: cost: %f, dice: %f" % (epoch, batch, c, d))
                     epoch_cost += epoch_cost / config.num_epochs
                     batch += 1
 

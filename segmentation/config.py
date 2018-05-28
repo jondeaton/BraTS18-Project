@@ -31,6 +31,9 @@ class Configuration(object):
         self.mini_batch_size = int(c["Hyperparameters"]["mini-batch"])
         self.seed = int(c["Hyperparameters"]["seed"])
 
+        self.shuffle_buffer_size = int(c["dataset"]["prefetch-buffer-size"])
+        self.prefetch_buffer_size = int(c["dataset"]["shuffle-buffer-size"])
+
     def overload(self, args):
         assert args is not None
 

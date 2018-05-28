@@ -9,9 +9,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import sys
 import argparse
 import logging
+import datetime
+
 import tensorflow as tf
 
 from preprocessing.partitions import load_tfrecord_datasets
@@ -21,6 +24,11 @@ from segmentation.metrics import dice_coeff, dice_loss
 from segmentation.config import Configuration
 
 logger = logging.getLogger()
+
+
+def _get_job_name():
+    now = '{:%Y-%m-%d.%H:%M}'.format(datetime.datetime.now())
+    return "%s_lr_%.4f" % (now, config.learning_rate)
 
 
 def _crop(mri, seg):
@@ -56,9 +64,31 @@ def create_data_pipeline():
     return train_aug, test_dataset, validation_dataset
 
 
-def train(train_dataset, test_dataset):
+def _get_optimizer(cost, global_step):
+    if config.adam:
+        # Don't use learning rate decay with Adam
+        learning_rate = tf.constant(config.learning_rate, dtype=tf.float32)
+        sgd = tf.train.AdamOptimizer(learning_rate=learning_rate, name="Adam")
+    else:
+        # Set up Stochastic Gradient Descent Optimizer with exponential learning rate decay
+        learning_rate = tf.train.exponential_decay(config.learning_rate, global_step=global_step,
+                                                   decay_steps=100000, decay_rate=config.learning_decay_rate,
+                                                   staircase=False, name="learning_rate")
+        sgd = tf.train.GradientDescentOptimizer(learning_rate=learning_rate, name="SGD")
+    optimizer = sgd.minimize(cost, name='optimizer', global_step=global_step)
+    return optimizer, learning_rate
 
-    # Set up training dataset iterator
+
+def train(train_dataset, test_dataset):
+    """
+    Train the model
+
+    :param train_dataset: Training dataset
+    :param test_dataset: Testing/dev dataset
+    :return: None
+    """
+
+    # Set up dataset iterators
     dataset_handle = tf.placeholder(tf.string, shape=[])
     iterator = tf.data.Iterator.from_string_handle(dataset_handle,
                                                    train_dataset.output_types,
@@ -67,7 +97,7 @@ def train(train_dataset, test_dataset):
     train_iterator = train_dataset.make_initializable_iterator()
     test_iterator = test_dataset.make_initializable_iterator()
 
-    # Input and ground truth segmentations
+    # MRI input and ground truth segmentations
     input, seg = iterator.get_next()
 
     # Create the model's computation graph and cost function
@@ -75,43 +105,30 @@ def train(train_dataset, test_dataset):
     dice = dice_coeff(seg, output)
     cost = - dice
 
-    # Define optimization strategy
+    # Define the optimization strategy
     global_step = tf.Variable(0, name='global_step', trainable=False)
-
-    if config.adam:
-        learning_rate = tf.constant(config.learning_rate, dtype=tf.float32)
-        sgd = tf.train.AdamOptimizer(learning_rate=learning_rate)
-    else:
-        learning_rate = tf.train.exponential_decay(config.learning_rate, global_step=global_step,
-                                                   decay_steps=100000, decay_rate=config.learning_decay_rate,
-                                                   staircase=False, name="learning_rate")
-        sgd = tf.train.GradientDescentOptimizer(learning_rate=learning_rate, name="Adam")
-    optimizer = sgd.minimize(cost, name='optimizer', global_step=global_step)
+    optimizer, learning_rate = _get_optimizer(cost, global_step)
 
     logger.info("Training...")
     init = tf.global_variables_initializer()
     with tf.Session() as sess:
 
-        train_handle = sess.run(train_iterator.string_handle())
-        test_handle = sess.run(test_iterator.string_handle())
-
         # Initialize graph and data iterators
         sess.run(init)
+        train_handle = sess.run(train_iterator.string_handle())
 
-        # Configure up TensorBard
+        # Configure TensorBard
         tf.summary.scalar('learning_rate', learning_rate)
-        tf.summary.scalar('test_dice', dice)
-        tf.summary.histogram("test_dice", dice)
+        tf.summary.scalar('train_dice', dice)
+        tf.summary.histogram("train_dice", dice)
         tf.summary.scalar('training_cost', cost)
         merged_summary = tf.summary.merge_all()
-        writer = tf.summary.FileWriter(logdir=config.tensorboard_dir)
-        writer.add_graph(sess.graph)
+        writer = tf.summary.FileWriter(logdir=tensorboard_dir)
+        writer.add_graph(sess.graph) # Add the pretty graph viz
 
         # Training epochs
         for epoch in range(config.num_epochs):
-
             sess.run(train_iterator.initializer)
-            sess.run(test_iterator.initializer)
 
             epoch_cost = 0.0
 
@@ -119,7 +136,7 @@ def train(train_dataset, test_dataset):
             batch = 0
             while True:
                 try:
-                    c, _, d = sess.run([cost, optimizer, dice],
+                    _, c, d = sess.run([optimizer, cost, dice],
                                        feed_dict={is_training: True,
                                                   dataset_handle: train_handle})
 
@@ -127,22 +144,37 @@ def train(train_dataset, test_dataset):
                     epoch_cost += epoch_cost / config.num_epochs
                     batch += 1
 
-                    if batch % 5 == 0:
-                        logger.info("Writing TensorBoard data...")
+                    if batch % config.tensorboard_freq == 0:
+                        logger.info("Logging TensorBoard data...")
+                        # Write out stats for training
                         s = sess.run(merged_summary, feed_dict={is_training: False,
-                                                                dataset_handle: test_handle})
-                        writer.add_summary(s, epoch)
-                        writer.flush()
+                                                                dataset_handle: train_dataset})
+                        writer.add_summary(s, global_step=global_step)
+
+                        # Generate stats for test dataset
+                        sess.run(test_iterator.initializer)
+                        test_handle = sess.run(test_iterator.string_handle())
+
+                        test_dice_summary = tf.summary.histogram('test_dice', dice)
+                        test_dice_avg_summary = tf.summary.scalar('test_dice_avg', tf.reduce_mean(dice))
+
+                        test_dice, test_dice_summ, test_dice_avg_summ = \
+                            sess.run([dice, test_dice_summary, test_dice_avg_summary],
+                                     feed_dict={is_training: False,
+                                                dataset_handle: test_handle})
+                        
+                        writer.add_summary(test_dice_summ, global_step=global_step)
+                        writer.add_summary(test_dice_avg_summ, global_step=global_step)
 
                 except tf.errors.OutOfRangeError:
+                    logger.info("End of epoch %d" % epoch)
                     break
-
         logger.info("Training complete.")
 
-        logger.info("Saving model to: %s" % config.model_file)
+        logger.info("Saving model to: %s ..." % config.model_file)
         saver = tf.train.Saver()
         saver.save(sess, config.model_file, global_step=global_step)
-        logger.info("Done saving model.")
+        logger.info("Model save complete.")
 
 
 def parse_args():
@@ -156,7 +188,7 @@ def parse_args():
 
     info_options = parser.add_argument_group("Info")
     info_options.add_argument("--job-dir", default=None, help="Job directory")
-    info_options.add_argument("--job-name", default="BraTS", help="Job name")
+    info_options.add_argument("--job-name", default="segmentation", help="Job name")
     info_options.add_argument("-gcs", "--google-cloud", action='store_true', help="Running in Google Cloud")
     info_options.add_argument("--config", help="Config file.")
 
@@ -214,6 +246,10 @@ def main():
         config = Configuration(config_file=args.config)
     else:
         config = Configuration()
+
+    # Set the TensorBoard directory
+    global tensorboard_dir
+    tensorboard_dir = os.path.join(config.tensorboard_dir, _get_job_name())
 
     # Set random seed for reproducible results
     tf.set_random_seed(config.seed)

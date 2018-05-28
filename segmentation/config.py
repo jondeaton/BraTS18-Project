@@ -23,14 +23,17 @@ class Configuration(object):
 
         self.brats_directory = os.path.expanduser(c["BraTS"]["root"])
         self.tfrecords_dir = os.path.expanduser(c["BraTS"]["TFRecords"])
-        self.tensorboard_dir = os.path.expanduser(c["TensorFlow"]["tensorboard-dir"])
         self.model_file = os.path.expanduser(c["Output"]["save-file"])
+
+        self.tensorboard_dir = os.path.expanduser(c["TensorFlow"]["tensorboard-dir"])
+        self.tensorboard_freq = int(c["TensorFlow"]["log-frequency"])
 
         self.adam = bool(c["Hyperparameters"]["adam"])
         self.learning_rate = float(c["Hyperparameters"]["learning-rate"])
         self.learning_decay_rate = float(c["Hyperparameters"]["learning-decay-rate"])
         self.num_epochs = int(c["Hyperparameters"]["epochs"])
         self.mini_batch_size = int(c["Hyperparameters"]["mini-batch"])
+        self.test_batch_size = int(c["Hyperparameters"]["test-batch-size"])
         self.seed = int(c["Hyperparameters"]["seed"])
 
         self.shuffle_buffer_size = int(c["dataset"]["prefetch-buffer-size"])

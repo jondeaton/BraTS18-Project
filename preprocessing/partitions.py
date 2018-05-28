@@ -53,6 +53,7 @@ def load_tfrecord_datasets(brats_tfrecords_dir, partition_dir=default_partition_
     for i, ids in enumerate((train_ids, test_ids, validation_ids)):
         datasets[i] = get_tfrecord_dataset(ids, record_map)
         datasets[i] = datasets[i].map(_parse_function)
+        datasets[i] = datasets[i].map(_reshape_fn)
     return datasets  # list of TFRecordDatasets for tran, test, validation
 
 
@@ -111,3 +112,9 @@ def make_tfrecord(brats_root, year, output_directory, patient_id):
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         serialized = example.SerializeToString()
         writer.write(serialized)
+
+
+def _reshape_fn(mri, seg):
+    _mri = tf.reshape(mri, (1,) + mri_shape)
+    _seg =  tf.reshape(seg, (1, 1,) + seg_shape)
+    return _mri, _seg

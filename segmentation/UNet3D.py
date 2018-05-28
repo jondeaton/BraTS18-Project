@@ -9,15 +9,6 @@ import tensorflow as tf
 
 
 def down_block(input, is_training, num_filters, name='down_level'):
-    """
-    One level of the
-
-    :param input:
-    :param is_training:
-    :param num_filters:
-    :param name:
-    :return:
-    """
     with tf.variable_scope(name):
         conv1 = conv_block(input, is_training, num_filters=num_filters, name='conv1')
         conv2 = conv_block(conv1, is_training, num_filters=num_filters, name='conv2')
@@ -31,11 +22,11 @@ def down_block(input, is_training, num_filters, name='down_level'):
 def up_block(input, shortcut, is_training, num_filters, name="up_level"):
     with tf.variable_scope(name):
         deconv = tf.layers.conv3d_transpose(input,
-                                            filters=num_filters, kernel_size=(3, 3, 3), strides=(2, 2, 2),
-                                            padding='same', data_format='channels_firat', name="deconv")
+                                            filters=num_filters, kernel_size=(3,3,3), strides=(2,2,2),
+                                            padding='same', data_format='channels_first', name="deconv")
 
-        tf.concat(values=[deconv, shortcut], axis=1, name="concat")
-        conv1 = conv_block(input, is_training, num_filters=num_filters, name='conv1')
+        concat = tf.concat(values=[deconv, shortcut], axis=1, name="concat")
+        conv1 = conv_block(concat, is_training, num_filters=num_filters, name='conv1')
         conv2 = conv_block(conv1, is_training, num_filters=num_filters, name='conv2')
         return conv2
 
@@ -66,7 +57,7 @@ def conv_block(input, is_training, num_filters, name='conv'):
                                            training=is_training, name='bn')
 
         # Activation after batch normalization
-        act = tf.nn.relu(bn)
+        act = tf.nn.relu(bn, name="bn-relu")
         tf.summary.histogram('activations', act)
         tf.summary.scalar('sparsity', tf.nn.zero_fraction(act))
         return act
@@ -87,16 +78,15 @@ def model(input, seg):
     with tf.variable_scope("up"):
         level3_up = up_block(conv2, l3_conv, is_training, num_filters=16, name="level3")
         level2_up = up_block(level3_up, l2_conv, is_training, num_filters=8, name="level2")
-        level1_up = up_block(level2_up, l1_conv, is_training, num_filters=4, name="level3")
+        level1_up = up_block(level2_up, l1_conv, is_training, num_filters=4, name="level1")
 
     with tf.variable_scope("output"):
         kernel_initializer = tf.truncated_normal_initializer(stddev=5e-2, dtype=tf.float32)
         bias_initializer = tf.zeros_initializer(dtype=tf.float32)
         output = tf.layers.conv3d(level1_up,
-                                      filters=1, kernel_size=(3, 3, 3), strides=(1, 1, 1),
-                                      padding='same',
-                                      data_format='channels_first', activation='sigmoid', use_bias=True,
-                                      kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
+                                  filters=1, kernel_size=(3,3,3), strides=(1,1,1), padding='same',
+                                  data_format='channels_first', activation=tf.nn.sigmoid, use_bias=True,
+                                  kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
 
         tf.summary.histogram('activations', output)
         tf.summary.scalar('sparsity', tf.nn.zero_fraction(output))

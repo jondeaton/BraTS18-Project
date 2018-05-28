@@ -23,6 +23,32 @@ from segmentation.config import Configuration
 logger = logging.getLogger()
 
 
+def _crop(mri, seg):
+    # reshapes images to be (1,4,240,240,152)
+    # so that they are easily divisible by powers of two
+    size = [-1] * 5
+    begin = [0] * 4 + [3]
+    _mri = tf.slice(mri, begin=begin, size=size)
+    _seg = tf.slice(seg, begin=begin, size=size)
+    return _mri, _seg
+
+
+def create_data_pipeline():
+    train_dataset, test_dataset, validation_dataset = load_tfrecord_datasets(config.tfrecords_dir)
+
+    # Crop them to be 240,240,152
+    train_dataset = train_dataset.map(_crop)
+    test_dataset = test_dataset.map(_crop)
+    validation_dataset = validation_dataset.map(_crop)
+
+    train_dataset_aug = augment_training_set(train_dataset)
+    train_dataset_aug.shuffle(8).repeat(config.num_epochs)
+    train_dataset_aug.batch(config.mini_batch_size)
+
+    return train_dataset, test_dataset, validation_dataset
+
+
+
 def train(train_dataset, test_dataset):
 
     # Set up training dataset iterator
@@ -165,10 +191,7 @@ def main():
     logger.debug("BraTS data set directory: %s" % config.brats_directory)
     logger.debug("TFRecords: %s" % config.tfrecords_dir)
 
-    train_dataset, test_dataset, validation_dataset = load_tfrecord_datasets(config.tfrecords_dir)
-    train_dataset_aug = augment_training_set(train_dataset)
-    train_dataset_aug.shuffle().repeat(config.num_epochs)
-    train_dataset_aug.batch(config.mini_batch_size)
+    train_dataset, test_dataset, validation_dataset = create_data_pipeline()
 
     logger.info("Initiating training...")
     logger.debug("TensorBoard Directory: %s" % config.tensorboard_dir)
@@ -176,7 +199,7 @@ def main():
     logger.debug("Learning rate: %s" % config.learning_rate)
     logger.debug("Num epochs: %s" % config.num_epochs)
     logger.debug("Mini-batch size: %s" % config.mini_batch_size)
-    train(train_dataset_aug, test_dataset)
+    train(train_dataset, test_dataset)
 
     logger.info("Exiting.")
 

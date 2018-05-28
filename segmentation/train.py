@@ -149,7 +149,7 @@ def train(train_dataset, test_dataset):
                         # Write out stats for training
                         s = sess.run(merged_summary, feed_dict={is_training: False,
                                                                 dataset_handle: train_handle})
-                        writer.add_summary(s, global_step=global_step)
+                        writer.add_summary(s, global_step=sess.run(global_step))
 
                         # Generate stats for test dataset
                         sess.run(test_iterator.initializer)
@@ -163,8 +163,8 @@ def train(train_dataset, test_dataset):
                                      feed_dict={is_training: False,
                                                 dataset_handle: test_handle})
 
-                        writer.add_summary(test_dice_summ, global_step=global_step)
-                        writer.add_summary(test_dice_avg_summ, global_step=global_step)
+                        writer.add_summary(test_dice_summ, global_step=sess.run(global_step))
+                        writer.add_summary(test_dice_avg_summ, global_step=sess.run(global_step))
 
                 except tf.errors.OutOfRangeError:
                     logger.info("End of epoch %d" % epoch)

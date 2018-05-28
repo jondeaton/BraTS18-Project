@@ -67,8 +67,13 @@ def train(train_dataset, test_dataset):
     cost = - dice
 
     # Define optimization strategy
-    sgd = tf.train.AdamOptimizer(learning_rate=config.learning_rate, name="Adam")
+    batch = tf.Variable(0)
+
     global_step = tf.Variable(0, name='global_step', trainable=False)
+    learning_rate = tf.train.exponential_decay(config.learning_rate, global_step=global_step,
+                                               decay_steps=100000, decay_rate=config.learning_decay_rate,
+                                               staircase=False, name="learning_rate")
+    sgd = tf.train.AdamOptimizer(learning_rate=learning_rate, name="Adam")
     optimizer = sgd.minimize(cost, name='optimizer', global_step=global_step)
 
     logger.info("Training...")
@@ -81,7 +86,7 @@ def train(train_dataset, test_dataset):
         sess.run(test_iterator.initializer)
 
         # Configure up TensorBard
-        tf.summary.scalar('learning_rate', optimizer._lr)
+        tf.summary.scalar('learning_rate', learning_rate)
         tf.summary.scalar('test_dice', dice)
         tf.summary.histogram("test_dice", dice)
         tf.summary.scalar('training_cost', cost)

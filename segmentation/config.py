@@ -27,6 +27,7 @@ class Configuration(object):
         self.model_file = os.path.expanduser(c["Output"]["save-file"])
 
         self.learning_rate = float(c["Hyperparameters"]["learning-rate"])
+        self.learning_decay_rate = float(c["Hyperparameters"]["learning-decay-rate"])
         self.num_epochs = int(c["Hyperparameters"]["epochs"])
         self.mini_batch_size = int(c["Hyperparameters"]["mini-batch"])
         self.seed = int(c["Hyperparameters"]["seed"])

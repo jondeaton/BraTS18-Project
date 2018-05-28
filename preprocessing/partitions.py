@@ -99,7 +99,6 @@ def make_tfrecord(brats_root, year, output_directory, patient_id):
     options = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)
 
     with tf.python_io.TFRecordWriter(tfrecord_fname, options=options) as writer:
-
         # Load the patient data
         brats = BraTS.DataSet(brats_root=brats_root, year=year)
         patient = brats.train.patient(patient_id)
@@ -115,6 +114,6 @@ def make_tfrecord(brats_root, year, output_directory, patient_id):
 
 
 def _reshape_fn(mri, seg):
-    _mri = tf.reshape(mri, (1,) + mri_shape)
-    _seg =  tf.reshape(seg, (1, 1,) + seg_shape)
-    return _mri, _seg
+    # _mri = tf.reshape(mri, (1,) + mri_shape)
+    _seg =  tf.reshape(seg, (1,) + seg_shape)
+    return mri, _seg

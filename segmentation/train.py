@@ -26,8 +26,8 @@ logger = logging.getLogger()
 def _crop(mri, seg):
     # reshapes images to be (1,4,240,240,152)
     # so that they are easily divisible by powers of two
-    size = [-1] * 5
-    begin = [0] * 4 + [3]
+    size = [-1] * 4
+    begin = [0] * 3 + [3]
     _mri = tf.slice(mri, begin=begin, size=size)
     _seg = tf.slice(seg, begin=begin, size=size)
     return _mri, _seg
@@ -46,7 +46,6 @@ def create_data_pipeline():
 
     # Shuffle, repeat, batch, prefetch the training dataset
     train_aug = train_aug.shuffle(config.shuffle_buffer_size)
-    train_aug = train_aug.repeat(config.num_epochs)
     train_aug = train_aug.batch(config.mini_batch_size)
     train_aug = train_aug.prefetch(buffer_size=config.prefetch_buffer_size)
 
@@ -68,7 +67,7 @@ def train(train_dataset, test_dataset):
     cost = - dice
 
     # Define optimization strategy
-    sgd = tf.train.AdamOptimizer(learning_rate=config.learning_rate, name="gradient-descent")
+    sgd = tf.train.AdamOptimizer(learning_rate=config.learning_rate, name="Adam")
     global_step = tf.Variable(0, name='global_step', trainable=False)
     optimizer = sgd.minimize(cost, name='optimizer', global_step=global_step)
 
@@ -82,6 +81,7 @@ def train(train_dataset, test_dataset):
         sess.run(test_iterator.initializer)
 
         # Configure up TensorBard
+        tf.summary.scalar('learning_rate', optimizer._lr)
         tf.summary.scalar('test_dice', dice)
         tf.summary.histogram("test_dice", dice)
         tf.summary.scalar('training_cost', cost)
@@ -103,11 +103,12 @@ def train(train_dataset, test_dataset):
                     epoch_cost += epoch_cost / config.num_epochs
                     batch += 1
 
+                    if batch % 5 == 0:
+                        s = sess.run(merged_summary)
+                        writer.add_summary(s, epoch)
+
                 except tf.errors.OutOfRangeError:
                     break
-
-            s = sess.run(merged_summary)
-            writer.add_summary(s, epoch)
 
         logger.info("Training complete.")
 

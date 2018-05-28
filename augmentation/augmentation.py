@@ -40,7 +40,8 @@ def blur(mri, seg):
 
 
 def _random_flip(mri, seg):
-    axis = tf.constant(1, dtype=tf.int32)
+    # axis = tf.constant(1, dtype=tf.int32)
+    axis = [1]
     flipped_mri = tf.reverse(mri, axis=axis)
     flipped_seg = tf.reverse(seg, axis=axis)
     return flipped_mri, flipped_seg

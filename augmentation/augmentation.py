@@ -39,25 +39,6 @@ def blur(mri, seg):
     return blurred, seg
 
 
-def _random_flip(mri, seg):
-    # axis = tf.constant(1, dtype=tf.int32)
-    axis = [1]
-    flipped_mri = tf.reverse(mri, axis=axis)
-    flipped_seg = tf.reverse(seg, axis=axis)
-    return flipped_mri, flipped_seg
-
-
-def _add_noise(mri, seg):
-    zero = tf.constant(0, dtype=tf.float32)
-    for i in range(tf.shape(mri)[0]):
-        img = mri[0]
-        non_zero = tf.not_equal(img, zero)
-
-        std = tf.nn.moments(mri[0], axes=[0, 1, 2])
-        noise = tf.random_normal(shape=tf.shape(mri), mean=0.0, stddev=std, dtype=tf.float32)
-        mri[i] = tf.where(non_zero, img + noise, img)
-
-    return mri, seg
 
 
 def augment_training_set(train_dataset):
@@ -70,15 +51,47 @@ def augment_training_set(train_dataset):
     assert isinstance(train_dataset, tf.data.Dataset)
 
     with tf.variable_scope("augmentation"):
-        flipped = train_dataset.map(_random_flip)
-        train_dataset = train_dataset.concatenate(flipped)
+        flipped_lr = train_dataset.map(_flip_left_right)
+        flipped_ud = train_dataset.map(_flip_up_down)
+        flipped_fb = train_dataset.map(_flip_front_back)
 
-        # todo: fix
-        # noisy = train_dataset.map(add_noise)
-        # train_dataset = train_dataset.concatenate(noisy)
+        train_dataset = train_dataset\
+            .concatenate(flipped_lr)\
+            .concatenate(flipped_ud)\
+            .concatenate(flipped_fb)
+
+        noisy = train_dataset.map(add_noise)
+        train_dataset = train_dataset.concatenate(noisy)
 
         # todo: fix blurring augmentation
         # blurred = train_dataset.map(blur)
         # train_dataset.concatenate(blurred)
 
     return train_dataset
+
+
+def _flip(mri, seg, axis):
+    flipped_mri = tf.reverse(mri, axis=axis)
+    flipped_seg = tf.reverse(seg, axis=axis)
+    return flipped_mri, flipped_seg
+
+
+def _flip_up_down(mri, seg):
+    return _flip(mri, seg, 3)
+
+
+def _flip_left_right(mri, seg):
+    return _flip(mri, seg, 1)
+
+
+def _flip_front_back(mri, seg):
+    return _flip(mri, seg, 2)
+
+
+def _add_noise(mri, seg):
+    std = tf.nn.moments(mri, axes=[0, 1, 2, 3])
+    noise = tf.random_normal(shape=tf.shape(mri), mean=0.0, stddev=std, dtype=tf.float32)
+
+    non_zero = tf.not_equal(mri, tf.constant(0, dtype=tf.float32))
+    _mri = tf.where(non_zero, mri + noise, mri)
+    return mri, seg

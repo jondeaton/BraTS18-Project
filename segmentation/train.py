@@ -40,7 +40,6 @@ def _crop(mri, seg):
     _seg = tf.slice(seg, begin=begin, size=size)
     return _mri, _seg
 
-
 def create_data_pipeline():
     train_dataset, test_dataset, validation_dataset = load_tfrecord_datasets(config.tfrecords_dir)
 
@@ -66,7 +65,7 @@ def create_data_pipeline():
 
 def _get_optimizer(cost, global_step):
     if config.adam:
-        # Don't use learning rate decay with Adam
+        # With Adam optimization: no learning rate decay
         learning_rate = tf.constant(config.learning_rate, dtype=tf.float32)
         sgd = tf.train.AdamOptimizer(learning_rate=learning_rate, name="Adam")
     else:
@@ -122,6 +121,8 @@ def train(train_dataset, test_dataset):
         tf.summary.scalar('train_dice', dice)
         tf.summary.histogram("train_dice", dice)
         tf.summary.scalar('training_cost', cost)
+        test_dice_summary = tf.summary.histogram('test_dice', dice)
+        test_dice_avg_summary = tf.summary.scalar('test_dice_avg', tf.reduce_mean(dice))
         merged_summary = tf.summary.merge_all()
         writer = tf.summary.FileWriter(logdir=tensorboard_dir)
         writer.add_graph(sess.graph) # Add the pretty graph viz
@@ -154,9 +155,6 @@ def train(train_dataset, test_dataset):
                         # Generate stats for test dataset
                         sess.run(test_iterator.initializer)
                         test_handle = sess.run(test_iterator.string_handle())
-
-                        test_dice_summary = tf.summary.histogram('test_dice', dice)
-                        test_dice_avg_summary = tf.summary.scalar('test_dice_avg', tf.reduce_mean(dice))
 
                         test_dice, test_dice_summ, test_dice_avg_summ = \
                             sess.run([dice, test_dice_summary, test_dice_avg_summary],

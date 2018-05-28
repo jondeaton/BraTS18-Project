@@ -55,11 +55,16 @@ def create_data_pipeline():
 def train(train_dataset, test_dataset):
 
     # Set up training dataset iterator
+    dataset_handle = tf.placeholder(tf.string, shape=[])
+    iterator = tf.data.Iterator.from_string_handle(dataset_handle,
+                                                   train_dataset.output_types,
+                                                   train_dataset.output_shapes)
+
     train_iterator = train_dataset.make_initializable_iterator()
     test_iterator = test_dataset.make_initializable_iterator()
 
     # Input and ground truth segmentations
-    input, seg = train_iterator.get_next()
+    input, seg = iterator.get_next()
 
     # Create the model's computation graph and cost function
     output, is_training = UNet.model(input, seg)
@@ -67,23 +72,27 @@ def train(train_dataset, test_dataset):
     cost = - dice
 
     # Define optimization strategy
-    batch = tf.Variable(0)
-
     global_step = tf.Variable(0, name='global_step', trainable=False)
-    learning_rate = tf.train.exponential_decay(config.learning_rate, global_step=global_step,
-                                               decay_steps=100000, decay_rate=config.learning_decay_rate,
-                                               staircase=False, name="learning_rate")
-    sgd = tf.train.GradientDescentOptimizer(learning_rate=learning_rate, name="Adam")
+
+    if config.adam:
+        learning_rate = tf.constant(config.learning_rate, dtype=tf.float32)
+        sgd = tf.train.AdamOptimizer(learning_rate=learning_rate)
+    else:
+        learning_rate = tf.train.exponential_decay(config.learning_rate, global_step=global_step,
+                                                   decay_steps=100000, decay_rate=config.learning_decay_rate,
+                                                   staircase=False, name="learning_rate")
+        sgd = tf.train.GradientDescentOptimizer(learning_rate=learning_rate, name="Adam")
     optimizer = sgd.minimize(cost, name='optimizer', global_step=global_step)
 
     logger.info("Training...")
     init = tf.global_variables_initializer()
     with tf.Session() as sess:
 
+        train_handle = sess.run(train_iterator.string_handle())
+        test_handle = sess.run(test_iterator.string_handle())
+
         # Initialize graph and data iterators
         sess.run(init)
-        sess.run(train_iterator.initializer)
-        sess.run(test_iterator.initializer)
 
         # Configure up TensorBard
         tf.summary.scalar('learning_rate', learning_rate)
@@ -96,20 +105,27 @@ def train(train_dataset, test_dataset):
 
         # Training epochs
         for epoch in range(config.num_epochs):
+
+            sess.run(train_iterator.initializer)
+            sess.run(test_iterator.initializer)
+
             epoch_cost = 0.0
 
             # Iterate through all batches in the epoch
             batch = 0
             while True:
                 try:
-                    c, _, d = sess.run([cost, optimizer, dice], feed_dict={is_training: True})
+                    c, _, d = sess.run([cost, optimizer, dice],
+                                       feed_dict={is_training: True,
+                                                  dataset_handle: train_handle})
 
                     logger.info("Epoch: %d, Batch %d: cost: %f, dice: %f" % (epoch, batch, c, d))
                     epoch_cost += epoch_cost / config.num_epochs
                     batch += 1
 
                     if batch % 5 == 0:
-                        s = sess.run(merged_summary)
+                        s = sess.run(merged_summary, feed_dict={is_training: False,
+                                                                dataset_handle: test_handle})
                         writer.add_summary(s, epoch)
 
                 except tf.errors.OutOfRangeError:

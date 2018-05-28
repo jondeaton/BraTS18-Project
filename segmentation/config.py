@@ -26,6 +26,7 @@ class Configuration(object):
         self.tensorboard_dir = os.path.expanduser(c["TensorFlow"]["tensorboard-dir"])
         self.model_file = os.path.expanduser(c["Output"]["save-file"])
 
+        self.adam = bool(c["Hyperparameters"]["adam"])
         self.learning_rate = float(c["Hyperparameters"]["learning-rate"])
         self.learning_decay_rate = float(c["Hyperparameters"]["learning-decay-rate"])
         self.num_epochs = int(c["Hyperparameters"]["epochs"])

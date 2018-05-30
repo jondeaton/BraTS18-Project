@@ -11,7 +11,7 @@ from keras.layers import Activation, Conv3D, MaxPooling3D
 from keras.layers import BatchNormalization, Concatenate, UpSampling3D
 
 
-def ConvBlockDown(input_layer, num_filters=32):
+def ConvBlockDown(input_layer, num_filters):
     strides = (1, 1, 1)
     kernel = (3, 3, 3)
 
@@ -24,13 +24,13 @@ def ConvBlockDown(input_layer, num_filters=32):
     return Activation('relu')(layer)
 
 
-def ConvBlockUp(input_layer, concat, num_filters=32):
+def ConvBlockUp(input_layer, concat, num_filters):
     strides = (1, 1, 1)
     pool_size = (2, 2, 2)
     kernel = (3, 3, 3)
 
     X = UpSampling3D(size=pool_size)(input_layer)
-    X = Concatenate(axis=1)([X, concat])
+    #X = Concatenate(axis=1)([X, concat])
 
     X = Conv3D(num_filters,
                kernel,
@@ -62,30 +62,30 @@ def UNet3D(input_shape, filter_start=4, pool_size=(2, 2, 2)):
 
     # Level 1
     X = ConvBlockDown(X_input, num_filters=filter_start)
-    X = ConvBlockDown(X, num_filters=filter_start)
+    #X = ConvBlockDown(X, num_filters=filter_start)
     level_1 = X
     X = MaxPooling3D(pool_size=pool_size,
                      name='max_pool1')(X)
 
     # Level 2
     X = ConvBlockDown(X, num_filters=2 * filter_start)
-    X = ConvBlockDown(X, num_filters=2 * filter_start)
+    #X = ConvBlockDown(X, num_filters=2 * filter_start)
     level_2 = X
     X = MaxPooling3D(pool_size=pool_size,
                      name='max_pool2')(X)
 
     # Level 3
-    X = ConvBlockDown(X, num_filters=4 * filter_start)
-    X = ConvBlockDown(X, num_filters=4 * filter_start)
-    level_3 = X
-    X = MaxPooling3D(pool_size=pool_size, name='max_pool3')(X)
+    #X = ConvBlockDown(X, num_filters=4 * filter_start)
+    #X = ConvBlockDown(X, num_filters=4 * filter_start)
+    #level_3 = X
+    #X = MaxPooling3D(pool_size=pool_size, name='max_pool3')(X)
 
     # Lowest Level
-    X = ConvBlockDown(X, num_filters=4 * filter_start)
-    X = ConvBlockDown(X, num_filters=4 * filter_start)
+    # X = ConvBlockDown(X, num_filters=4 * filter_start)
+    #X = ConvBlockDown(X, num_filters=4 * filter_start)
 
     # Up-convolutions
-    X = ConvBlockUp(X, level_3, num_filters=4 * filter_start)
+    #X = ConvBlockUp(X, level_3, num_filters=4 * filter_start)
     X = ConvBlockUp(X, level_2, num_filters=2 * filter_start)
     X = ConvBlockUp(X, level_1, num_filters=filter_start)
 

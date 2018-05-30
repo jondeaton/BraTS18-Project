@@ -23,6 +23,8 @@ class Configuration(object):
         self.brats_directory = os.path.expanduser(c["BraTS"]["root"])
         self.tensorboard_dir = os.path.expanduser(c["TensorFlow"]["tensorboard-dir"])
         self.model_file = os.path.expanduser(c["Output"]["save-file"])
+        
+        #self.brats_records = os.path.expanduser(c["Input"]["tfrecords"])
 
         self.learning_rate = float(c["Hyperparameters"]["learning-rate"])
         self.num_epochs = int(c["Hyperparameters"]["epochs"])

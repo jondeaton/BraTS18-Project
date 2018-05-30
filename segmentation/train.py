@@ -27,6 +27,9 @@ from BraTS.Patient import load_patient_data
 from BraTS.modalities import mri_shape, seg_shape
 from preprocessing.partitions import get_training_ids, get_test_ids
 
+import preprocessing
+from preprocessing.load_tfrecords import *
+
 from segmentation.model_UNet3D import UNet3D
 from segmentation.metrics import dice_coefficient_loss, dice_coefficient
 from segmentation.config import Configuration
@@ -75,12 +78,52 @@ def training_generator():
 
     mri = np.empty((1,) + mri_shape)
     seg = np.empty((1, 1) + seg_shape)
+
+    record_map = get_record_id_map("/Users/CamBackes/Documents/Academic/Courses/CS_230/Dataset/BraTS_TFRecords/BraTS18/training")
+    
+    #train_dataset = get_tfrecord_dataset(patient_ids, record_map)
+    
+    def _parse_function(serialized):
+        mri = tf.FixedLenFeature([], tf.string)
+        seg = tf.FixedLenFeature([], tf.int64)
+
+        features = {'train/mri': mri, 'train/seg': seg}
+
+        parsed_example = tf.parse_single_example(serialized=serialized,
+                                                 features=features)
+        
+        # Get the image as raw bytes and decode into tensor
+        # ** may need to alter image_shape
+        mri_shape = tf.stack([4, 240, 240, 155])
+        mri_raw = parsed_example['train/mri']
+        mri_T  = tf.decode_raw(mri_raw, tf.uint8)
+        mri_T = tf.cast(mri_T, tf.float32)
+
+        #reshape and standardize
+        mri_T = tf.reshape(mri_T, mri_shape)
+        #mri_T = tf.per_image_standardization(mri_T)
+        
+        #parse ground truth seg
+        seg_raw = parsed_example['train/seg']
+        #seg_T = tf.decode_raw(seg_raw, tf.uint8)
+        seg_T = tf.cast(seg_raw, tf.float32)
+        
+        # return zipped dictionary containing mri and seg
+        tensor_dict = dict(zip(input_name, mri_T)), seg_T
+        return tensor_dict
+    
+    #get dataset
+    #train_dataset = train_dataset.map(_parse_function)
     
     while True:
         shuffle(patient_ids)
         for patient_id in patient_ids:
-            patient_dir = brats.train.directory_map[patient_id]
-            _mri, _seg = load_patient_data(patient_dir)
+            patient_dir = record_map[patient_id]
+            train_dataset = tf.data.TFRecordDataset(filenames=patient_dir)
+            train_dataset = train_dataset.map(_parse_function)
+            train_dataset = train_dataset.batch(batch_size)  # Batch size to use
+            iterator = train_dataset.make_one_shot_iterator()
+            _mri, _seg = iterator.get_next()
             _seg[_seg >= 1] = 1
 
             yield fix_dims(_mri, _seg, mri, seg)
@@ -137,8 +180,8 @@ def train(model):
                                       write_images=True)
 
     callbacks = [tb_callback, checkpoint_callback]
-    model.fit_generator(generator=make_generator(get_training_ids(), augment=True),
-                        steps_per_epoch=205,
+    model.fit_generator(generator=training_generator(),
+                        steps_per_epoch=285,
                         epochs=config.num_epochs,
                         verbose=1,
                         validation_data=make_generator(get_test_ids(), augment=False),

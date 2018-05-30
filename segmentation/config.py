@@ -35,7 +35,8 @@ class Configuration(object):
         self.mini_batch_size = int(c["Hyperparameters"]["mini-batch"])
         self.test_batch_size = int(c["Hyperparameters"]["test-batch-size"])
         self.seed = int(c["Hyperparameters"]["seed"])
-
+        
+        self.augment_dataset = bool(c["dataset"]["augment"])
         self.shuffle_buffer_size = int(c["dataset"]["prefetch-buffer-size"])
         self.prefetch_buffer_size = int(c["dataset"]["shuffle-buffer-size"])
 

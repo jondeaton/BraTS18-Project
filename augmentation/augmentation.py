@@ -18,27 +18,25 @@ from scipy.ndimage.filters import gaussian_filter
 from keras.preprocessing.image import ImageDataGenerator
 
 
-
-def random_flip(mri, seg):
-    axis = np.random.randint(3)
-    flipped_mri = np.flip(mri, axis=axis)
-    flipped_seg = np.flip(seg, axis=axis)
-    return flipped_mri, flipped_seg
-
-def add_noise(mri, seg):
-    new_mri = np.copy(mri)
-    for i in range(mri.shape[0]):
-        foreground = mri[i] != 0
-        std = np.std(mri[i][foreground])
-        noise = np.random.randn(*(mri.shape[1:])) * std * 0.3
-        new_mri[i][foreground] += noise[foreground]
-    return new_mri, seg
-
-def blur(mri, seg):
-    blurred = gaussian_filter(mri, sigma=0.5)
-    return blurred, seg
-
-
+# def random_flip(mri, seg):
+#     axis = np.random.randint(3)
+#     flipped_mri = np.flip(mri, axis=axis)
+#     flipped_seg = np.flip(seg, axis=axis)
+#     return flipped_mri, flipped_seg
+#
+# def add_noise(mri, seg):
+#     new_mri = np.copy(mri)
+#     for i in range(mri.shape[0]):
+#         foreground = mri[i] != 0
+#         std = np.std(mri[i][foreground])
+#         noise = np.random.randn(*(mri.shape[1:])) * std * 0.3
+#         new_mri[i][foreground] += noise[foreground]
+#     return new_mri, seg
+#
+#
+# def _blur(mri, seg):
+#     blurred = gaussian_filter(mri, sigma=0.5)
+#     return blurred, seg
 
 
 def augment_training_set(train_dataset):

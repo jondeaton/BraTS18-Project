@@ -24,6 +24,8 @@ import argparse
 import logging
 import multiprocessing as mp
 
+from tensorflow.python.lib.io import file_io
+
 import BraTS
 from preprocessing.partitions import make_tfrecord
 
@@ -36,10 +38,10 @@ def _make_tfrecord_shell(args):
 
 
 def make_tfrecords(brats_root, year, output_directory, ids, sequential=False):
-    if not os.path.isdir(output_directory):
+    if not file_io.is_directory(output_directory):
         logger.debug("Creating output directory: %s" % output_directory)
         try:
-            os.mkdir(output_directory)
+            file_io.create_dir(output_directory)
         except FileExistsError:
             logger.debug("Output directory exists: %s" % output_directory)
 
@@ -116,10 +118,10 @@ def main():
 
     logger.debug("BraTS root: %s" % brats_root)
 
-    if not os.path.exists(output_dir):
+    if not file_io.is_directory(output_dir):
         logger.debug("Creating output directory: %s" % output_dir)
         try:
-            os.mkdir(output_dir)
+            file_io.create_dir(output_dir)
         except FileExistsError:
             logger.debug("Output directory exists.")
     else:

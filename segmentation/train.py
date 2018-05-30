@@ -49,18 +49,19 @@ def create_data_pipeline():
     validation_dataset = validation_dataset.map(_crop)
 
     # Dataset augmentation
-    train_aug = augment_training_set(train_dataset)
+    if config.augment_dataset:
+        train_dataset = augment_training_set(train_dataset)
 
     # Shuffle, repeat, batch, prefetch the training dataset
-    train_aug = train_aug.shuffle(config.shuffle_buffer_size)
-    train_aug = train_aug.batch(config.mini_batch_size)
-    train_aug = train_aug.prefetch(buffer_size=config.prefetch_buffer_size)
+    train_dataset = train_dataset.shuffle(config.shuffle_buffer_size)
+    train_dataset = train_dataset.batch(config.mini_batch_size)
+    train_dataset = train_dataset.prefetch(buffer_size=config.prefetch_buffer_size)
 
     # Shuffle/batch test dataset
     test_dataset = test_dataset.shuffle(config.shuffle_buffer_size)
     test_dataset = test_dataset.batch(config.mini_batch_size)
 
-    return train_aug, test_dataset, validation_dataset
+    return train_dataset, test_dataset, validation_dataset
 
 
 def _get_optimizer(cost, global_step):

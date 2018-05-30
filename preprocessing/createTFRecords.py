@@ -128,6 +128,14 @@ def main():
         logger.debug("Output directory: %s" % output_dir)
 
     brats = BraTS.DataSet(brats_root=brats_root, year=args.year)
+    ids = list()
+    if brats.train is not None:
+        logger.info("Converting training ids.")
+        ids.extend(brats.train.ids)
+    if brats.validation is not None:
+        logger.info("Converting validation ids")
+        ids.extend(brats.validation.ids)
+
     make_tfrecords(brats_root, args.year, output_dir, brats.train.ids, sequential=args.sequential)
 
 

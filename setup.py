@@ -1,13 +1,7 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages
+from setuptools import setup
 
-setup(name='BraTS',
-      version='0.1',
-      packages=find_packages(),
-      description="BraTS 2018 Challenge",
-      author="Jon Deaton, Cam Backes",
-      author_email="jdeaton@stanford.edu, cbackes@stanford.edu",
-      license='MIT',
-      install_requires=[
+REQUIRED_PACKAGES = [
           "tensorflow",
           "numpy",
           "matplotlib",
@@ -18,6 +12,15 @@ setup(name='BraTS',
           "SimpleITK"   # For normalizing the data
           "itk",        # The next three are for reading BraTS15 dataset
           "pydicom",
-          "medpy"
-      ],
+          "medpy"]
+
+setup(name='BraTS',
+      version='0.1',
+      packages=find_packages(),
+      description="BraTS 2018 Challenge",
+      author="Jon Deaton, Cam Backes",
+      author_email="jdeaton@stanford.edu, cbackes@stanford.edu",
+      license='MIT',
+      install_requires=REQUIRED_PACKAGES,
+      include_package_data=True,  # allows config file to be copied to GCP
       zip_safe=False)

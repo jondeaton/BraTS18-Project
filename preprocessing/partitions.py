@@ -101,7 +101,12 @@ def make_tfrecord(brats_root, year, output_directory, patient_id):
     with tf.python_io.TFRecordWriter(tfrecord_fname, options=options) as writer:
         # Load the patient data
         brats = BraTS.DataSet(brats_root=brats_root, year=year)
-        patient = brats.train.patient(patient_id)
+        if patient_id in brats.train.ids:
+            patient = brats.train.patient(patient_id)
+        elif patient_id in brats.validation.ids:
+            patient = brats.validation.patient(patient_id)
+        else:
+            raise ValueError(patient_id)
 
         # Wrap the data in 5 layers of API calls...
         feature = dict()

@@ -22,13 +22,14 @@ from augmentation.augmentation import augment_training_set
 import segmentation.UNet3D as UNet
 from segmentation.metrics import dice_coeff, dice_loss
 from segmentation.config import Configuration
+from segmentation.params import Params
 
 logger = logging.getLogger()
 
 
 def _get_job_name():
     now = '{:%Y-%m-%d.%H:%M}'.format(datetime.datetime.now())
-    return "%s_lr_%.4f" % (now, config.learning_rate)
+    return "%s_lr_%.4f" % (now, params.learning_rate)
 
 
 def _crop(mri, seg):
@@ -49,30 +50,30 @@ def create_data_pipeline():
     validation_dataset = validation_dataset.map(_crop)
 
     # Dataset augmentation
-    if config.augment_dataset:
+    if params.augment:
         train_dataset = augment_training_set(train_dataset)
 
     # Shuffle, repeat, batch, prefetch the training dataset
-    train_dataset = train_dataset.shuffle(config.shuffle_buffer_size)
-    train_dataset = train_dataset.batch(config.mini_batch_size)
-    train_dataset = train_dataset.prefetch(buffer_size=config.prefetch_buffer_size)
+    train_dataset = train_dataset.shuffle(params.shuffle_buffer_size)
+    train_dataset = train_dataset.batch(params.mini_batch_size)
+    train_dataset = train_dataset.prefetch(buffer_size=params.prefetch_buffer_size)
 
     # Shuffle/batch test dataset
-    test_dataset = test_dataset.shuffle(config.shuffle_buffer_size)
-    test_dataset = test_dataset.batch(config.mini_batch_size)
+    test_dataset = test_dataset.shuffle(params.shuffle_buffer_size)
+    test_dataset = test_dataset.batch(params.mini_batch_size)
 
     return train_dataset, test_dataset, validation_dataset
 
 
 def _get_optimizer(cost, global_step):
-    if config.adam:
+    if params.adam:
         # With Adam optimization: no learning rate decay
-        learning_rate = tf.constant(config.learning_rate, dtype=tf.float32)
+        learning_rate = tf.constant(params.learning_rate, dtype=tf.float32)
         sgd = tf.train.AdamOptimizer(learning_rate=learning_rate, name="Adam")
     else:
         # Set up Stochastic Gradient Descent Optimizer with exponential learning rate decay
-        learning_rate = tf.train.exponential_decay(config.learning_rate, global_step=global_step,
-                                                   decay_steps=100000, decay_rate=config.learning_decay_rate,
+        learning_rate = tf.train.exponential_decay(params.learning_rate, global_step=global_step,
+                                                   decay_steps=100000, decay_rate=params.learning_decay_rate,
                                                    staircase=False, name="learning_rate")
         sgd = tf.train.GradientDescentOptimizer(learning_rate=learning_rate, name="SGD")
     optimizer = sgd.minimize(cost, name='optimizer', global_step=global_step)
@@ -129,7 +130,7 @@ def train(train_dataset, test_dataset):
         writer.add_graph(sess.graph) # Add the pretty graph viz
 
         # Training epochs
-        for epoch in range(config.num_epochs):
+        for epoch in range(params.num_epochs):
             sess.run(train_iterator.initializer)
 
             epoch_cost = 0.0
@@ -143,7 +144,7 @@ def train(train_dataset, test_dataset):
                                                   dataset_handle: train_handle})
 
                     logger.info("Epoch: %d, Batch %d: cost: %f, dice: %f" % (epoch, batch, c, d))
-                    epoch_cost += epoch_cost / config.num_epochs
+                    epoch_cost += epoch_cost / params.num_epochs
                     batch += 1
 
                     if batch % config.tensorboard_freq == 0:
@@ -189,7 +190,8 @@ def parse_args():
     info_options.add_argument("--job-dir", default=None, help="Job directory")
     info_options.add_argument("--job-name", default="segmentation", help="Job name")
     info_options.add_argument("-gcs", "--google-cloud", action='store_true', help="Running in Google Cloud")
-    info_options.add_argument("--config", help="Config file.")
+    info_options.add_argument("--config", required=True, type=str, help="Config file.")
+    info_options.add_argument("-params", "--params", type=str, help="Hyperparameters json file")
 
     input_options = parser.add_argument_group("Input")
     input_options.add_argument('--brats', help="BraTS root data set directory")
@@ -241,17 +243,20 @@ def main():
         logger.info("Running on Google Cloud.")
 
     global config
-    if args.config is not None:
-        config = Configuration(config_file=args.config)
+    config = Configuration(args.config)
+
+    global params
+    if args.params is not None:
+        params = Params(args.params)
     else:
-        config = Configuration()
+        params = Params()
 
     # Set the TensorBoard directory
     global tensorboard_dir
     tensorboard_dir = os.path.join(config.tensorboard_dir, _get_job_name())
 
     # Set random seed for reproducible results
-    tf.set_random_seed(config.seed)
+    tf.set_random_seed(params.seed)
 
     logger.info("Creating data pre-processing pipeline...")
     logger.debug("BraTS data set directory: %s" % config.brats_directory)
@@ -262,9 +267,9 @@ def main():
     logger.info("Initiating training...")
     logger.debug("TensorBoard Directory: %s" % config.tensorboard_dir)
     logger.debug("Model save file: %s" % config.model_file)
-    logger.debug("Learning rate: %s" % config.learning_rate)
-    logger.debug("Num epochs: %s" % config.num_epochs)
-    logger.debug("Mini-batch size: %s" % config.mini_batch_size)
+    logger.debug("Learning rate: %s" % params.learning_rate)
+    logger.debug("Num epochs: %s" % params.num_epochs)
+    logger.debug("Mini-batch size: %s" % params.mini_batch_size)
     train(train_dataset, test_dataset)
 
     logger.info("Exiting.")

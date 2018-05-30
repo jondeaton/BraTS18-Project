@@ -8,14 +8,15 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 import os
 import configparser
 
-dir_name = os.path.dirname(__file__)
-default_config_file = os.path.join(dir_name, "train_config.ini")
 
 
 class Configuration(object):
 
-    def __init__(self, config_file=default_config_file):
+    def __init__(self, config_file):
+
         assert isinstance(config_file, str)
+
+        # Setup the filesystem configuration
         self._config_file = config_file
         self._config = configparser.ConfigParser()
         self._config.read(self._config_file)
@@ -27,18 +28,6 @@ class Configuration(object):
 
         self.tensorboard_dir = os.path.expanduser(c["TensorFlow"]["tensorboard-dir"])
         self.tensorboard_freq = int(c["TensorFlow"]["log-frequency"])
-
-        self.adam = bool(c["Hyperparameters"]["adam"])
-        self.learning_rate = float(c["Hyperparameters"]["learning-rate"])
-        self.learning_decay_rate = float(c["Hyperparameters"]["learning-decay-rate"])
-        self.num_epochs = int(c["Hyperparameters"]["epochs"])
-        self.mini_batch_size = int(c["Hyperparameters"]["mini-batch"])
-        self.test_batch_size = int(c["Hyperparameters"]["test-batch-size"])
-        self.seed = int(c["Hyperparameters"]["seed"])
-        
-        self.augment_dataset = bool(c["dataset"]["augment"])
-        self.shuffle_buffer_size = int(c["dataset"]["prefetch-buffer-size"])
-        self.prefetch_buffer_size = int(c["dataset"]["shuffle-buffer-size"])
 
     def overload(self, args):
         assert args is not None

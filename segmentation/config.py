@@ -9,7 +9,6 @@ import os
 import configparser
 
 
-
 class Configuration(object):
 
     def __init__(self, config_file):

@@ -78,6 +78,10 @@ class Params():
         return self.dict["augment"]
 
     @property
+    def multi_class(self):
+        return self.dict["multi_class"]
+
+    @property
     def dict(self):
         """Gives dict-like access to Params instance by `params.dict['learning_rate']`"""
         return self.__dict__

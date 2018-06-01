@@ -53,7 +53,6 @@ def load_tfrecord_datasets(brats_tfrecords_dir, partition_dir=default_partition_
     for i, ids in enumerate((train_ids, test_ids, validation_ids)):
         datasets[i] = get_tfrecord_dataset(ids, record_map)
         datasets[i] = datasets[i].map(_parse_function)
-        datasets[i] = datasets[i].map(_reshape_fn)
     return datasets  # list of TFRecordDatasets for tran, test, validation
 
 

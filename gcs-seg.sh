@@ -11,6 +11,7 @@ timestamp=`date +%s`
 job_name=$project_name"_job_$timestamp"
 bucket_name="brats-20x"
 cloud_config="$project_directory/cloudml-gpu.yaml"
+train_config="config_gcp.ini"
 job_dir="gs://$bucket_name/segmentation"  # where to save
 module="$project_directory.train"
 package="./$project_directory"
@@ -25,7 +26,7 @@ gcloud ml-engine jobs submit training "$job_name" \
     --region "$region" \
     --config="$cloud_config" \
     -- \
-    --config="config_gcp.ini" \
+    --config="$train_config" \
     --job-name "$job_name" \
     --log=DEBUG \
     --google-cloud

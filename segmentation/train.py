@@ -42,8 +42,19 @@ def _crop(mri, seg):
     return _mri, _seg
 
 
-def create_data_pipeline():
+def _make_multi_class(mri, seg):
+    # Turns the segmentation into a one-hot-multi-class
+    _seg = tf.one_hot(tf.cast(seg, tf.int32), depth=4, axis=0)
+    return mri, _seg
+
+
+def create_data_pipeline(multi_class):
     train_dataset, test_dataset, validation_dataset = load_tfrecord_datasets(config.tfrecords_dir)
+
+    if multi_class:
+        train_dataset = train_dataset.map(_make_multi_class)
+        test_dataset = test_dataset.map(_make_multi_class)
+        validation_dataset = validation_dataset.map(_make_multi_class)
 
     # Crop them to be 240,240,152
     train_dataset = train_dataset.map(_crop)
@@ -81,6 +92,29 @@ def _get_optimizer(cost, global_step):
     return optimizer, learning_rate
 
 
+def add_summary_image_triplet(inputs_op, target_masks_op, predicted_masks_op, num_images=4):
+    """
+    Adds triplets of (input, target_mask, predicted_mask) images.
+
+    :param inputs_op: A placeholder Tensor (dtype=tf.float32) with shape batch size
+    by image dims e.g. (100, 233, 197) that represents the batch of inputs.
+    :param target_masks_op: A placeholder Tensor (dtype=tf.flota32) with shape batch
+    size by mask dims e.g. (100, 233, 197) that represents the batch of target
+    masks.
+    :param predicted_masks_op: A Tensor (dtype=tf.uint8) of the same shape as
+    self.logits_op e.g. (100, 233, 197) of 0s and 1s.
+    :param num_images:
+    :return: triplet - A Tensor of concatenated images with shape batch size by
+    image height dim by 3 * image width dim e.g. (100, 233, 197*3, 1).
+    """
+    # Converts from (100, 233, 197) to (100, 233, 197, 1)
+    inputs_op = tf.expand_dims(inputs_op, axis=3)
+    target_masks_op = tf.expand_dims(target_masks_op, axis=3)
+    predicted_masks_op = tf.cast(tf.expand_dims(predicted_masks_op, axis=3), dtype=tf.float32)
+    triplets = tf.concat([inputs_op, target_masks_op, predicted_masks_op], axis=2)
+    tf.summary.image("triplets", triplets[:num_images], max_outputs=num_images)
+
+
 def train(train_dataset, test_dataset):
     """
     Train the model
@@ -103,6 +137,7 @@ def train(train_dataset, test_dataset):
     input, seg = iterator.get_next()
 
     # Create the model's computation graph and cost function
+    logger.info("Instantiating model...")
     output, is_training = UNet.model(input, seg)
     dice = dice_coeff(seg, output)
     cost = - dice
@@ -243,6 +278,7 @@ def main():
     if args.google_cloud:
         logger.info("Running on Google Cloud.")
 
+    logger.debug("Config file: %s" % args.config)
     global config
     config = Configuration(args.config)
 
@@ -263,7 +299,7 @@ def main():
     logger.debug("BraTS data set directory: %s" % config.brats_directory)
     logger.debug("TFRecords: %s" % config.tfrecords_dir)
 
-    train_dataset, test_dataset, validation_dataset = create_data_pipeline()
+    train_dataset, test_dataset, validation_dataset = create_data_pipeline(params.multi_class)
 
     logger.info("Initiating training...")
     logger.debug("TensorBoard Directory: %s" % config.tensorboard_dir)

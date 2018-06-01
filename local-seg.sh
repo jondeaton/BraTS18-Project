@@ -2,5 +2,5 @@
 # Test the segmentation model locally
 
 python -m segmentation.train \
-    --config config_local.ini \
+    --config "segmentation/config_local.ini" \
     --log=DEBUG

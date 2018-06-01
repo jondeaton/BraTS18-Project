@@ -62,6 +62,7 @@ def conv_block(input, is_training, num_filters, name='conv'):
         tf.summary.scalar('sparsity', tf.nn.zero_fraction(act))
         return act
 
+
 def model(input, seg):
 
     is_training = tf.placeholder(tf.bool)

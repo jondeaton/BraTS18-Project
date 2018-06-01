@@ -15,7 +15,7 @@ from nilearn.image import new_img_like, resample_to_img
 from scipy.ndimage.filters import gaussian_filter
 
 
-from keras.preprocessing.image import ImageDataGenerator
+
 
 
 # def random_flip(mri, seg):

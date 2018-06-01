@@ -41,6 +41,7 @@ def _crop(mri, seg):
     _seg = tf.slice(seg, begin=begin, size=size)
     return _mri, _seg
 
+
 def create_data_pipeline():
     train_dataset, test_dataset, validation_dataset = load_tfrecord_datasets(config.tfrecords_dir)
 
@@ -130,7 +131,7 @@ def train(train_dataset, test_dataset):
         writer.add_graph(sess.graph) # Add the pretty graph viz
 
         # Training epochs
-        for epoch in range(params.num_epochs):
+        for epoch in range(params.epochs):
             sess.run(train_iterator.initializer)
 
             epoch_cost = 0.0
@@ -144,7 +145,7 @@ def train(train_dataset, test_dataset):
                                                   dataset_handle: train_handle})
 
                     logger.info("Epoch: %d, Batch %d: cost: %f, dice: %f" % (epoch, batch, c, d))
-                    epoch_cost += epoch_cost / params.num_epochs
+                    epoch_cost += epoch_cost / params.epochs
                     batch += 1
 
                     if batch % config.tensorboard_freq == 0:
@@ -268,7 +269,7 @@ def main():
     logger.debug("TensorBoard Directory: %s" % config.tensorboard_dir)
     logger.debug("Model save file: %s" % config.model_file)
     logger.debug("Learning rate: %s" % params.learning_rate)
-    logger.debug("Num epochs: %s" % params.num_epochs)
+    logger.debug("Num epochs: %s" % params.epochs)
     logger.debug("Mini-batch size: %s" % params.mini_batch_size)
     train(train_dataset, test_dataset)
 

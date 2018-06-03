@@ -20,9 +20,10 @@ import tensorflow as tf
 from preprocessing.partitions import load_tfrecord_datasets
 from augmentation.augmentation import augment_training_set
 import segmentation.UNet3D as UNet
-from segmentation.metrics import dice_coeff, dice_loss
+from segmentation.metrics import dice_coeff, dice_loss, multi_class_dice
 from segmentation.config import Configuration
 from segmentation.params import Params
+from BraTS.modalities import mri_shape, seg_shape
 
 logger = logging.getLogger()
 
@@ -49,6 +50,12 @@ def _make_multi_class(mri, seg):
     return mri, _seg
 
 
+def _reshape(mri, seg):
+    # _mri = tf.reshape(mri, (1,) + mri_shape)
+    _seg = tf.reshape(seg, (1,) + seg_shape)
+    return mri, _seg
+
+
 def _to_prediction(segmentation_softmax):
     pred = tf.argmax(segmentation_softmax, axis=1)
     pred_seg = tf.one_hot(tf.cast(pred, tf.int32), depth=4, axis=1)
@@ -62,6 +69,11 @@ def create_data_pipeline(multi_class):
         train_dataset = train_dataset.map(_make_multi_class)
         test_dataset = test_dataset.map(_make_multi_class)
         validation_dataset = validation_dataset.map(_make_multi_class)
+    else:
+        train_dataset = train_dataset.map(_reshape)
+        test_dataset = test_dataset.map(_reshape)
+        validation_dataset = validation_dataset.map(_reshape)
+
 
     # Crop them to be 240,240,152
     train_dataset = train_dataset.map(_crop)
@@ -121,6 +133,7 @@ def add_summary_image_triplet(inputs_op, target_masks_op, predicted_masks_op, nu
     triplets = tf.concat([inputs_op, target_masks_op, predicted_masks_op], axis=2)
     tf.summary.image("triplets", triplets[:num_images], max_outputs=num_images)
 
+from segmentation.params import loss
 
 def train(train_dataset, test_dataset):
     """
@@ -145,14 +158,20 @@ def train(train_dataset, test_dataset):
 
     # Create the model's computation graph and cost function
     logger.info("Instantiating model...")
-    output, is_training = UNet.model(input, seg)
+    output, is_training = UNet.model(input, seg, params.multi_class)
+
+    if params.multi_class:
+        pred = _to_prediction(output)
+        dice = multi_class_dice(seg, pred)
+    else:
+        dice = dice_coeff(seg, output)
 
     # Cost function
-    x_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=seg, logits=output, dim=1)
-    cost = tf.reduce_mean(x_entropy)
-
-    pred = _to_prediction(output)
-    dice = dice_coeff(seg, pred)
+    if params.loss == loss.dice:
+        cost = - dice
+    else:
+        x_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=seg, logits=output, dim=1)
+        cost = tf.reduce_mean(x_entropy)
 
     # Define the optimization strategy
     global_step = tf.Variable(0, name='global_step', trainable=False)

@@ -115,9 +115,3 @@ def make_tfrecord(brats_root, year, output_directory, patient_id):
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         serialized = example.SerializeToString()
         writer.write(serialized)
-
-
-def _reshape_fn(mri, seg):
-    # _mri = tf.reshape(mri, (1,) + mri_shape)
-    _seg =  tf.reshape(seg, (1,) + seg_shape)
-    return mri, _seg

@@ -63,7 +63,7 @@ def conv_block(input, is_training, num_filters, name='conv'):
         return act
 
 
-def model(input, seg):
+def model(input, seg, multi_class):
 
     is_training = tf.placeholder(tf.bool)
 
@@ -85,12 +85,18 @@ def model(input, seg):
         kernel_initializer = tf.truncated_normal_initializer(stddev=5e-2, dtype=tf.float32)
         bias_initializer = tf.zeros_initializer(dtype=tf.float32)
 
-        final_conv = tf.layers.conv3d(level1_up,
-                                  filters=4, kernel_size=(1,1,1), strides=(1,1,1), padding='same',
-                                  data_format='channels_first', activation=None, use_bias=True,
-                                  kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
 
-        output = tf.nn.softmax(final_conv, axis=1, name="softmax")
+        if multi_class:
+            final_conv = tf.layers.conv3d(level1_up,
+                                      filters=4, kernel_size=(1,1,1), strides=(1,1,1), padding='same',
+                                      data_fomat='channels_first', activation=None, use_bias=True,
+                                      kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
+            output = tf.nn.softmax(final_conv, axis=1, name="softmax")
+        else:
+            output = tf.layers.conv3d(level1_up,
+                                          filters=1, kernel_size=(3, 3, 3), strides=(1, 1, 1), padding='same',
+                                          data_format='channels_first', activation=tf.nn.softmax, use_bias=True,
+                                          kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
 
         tf.summary.histogram('activations', output)
         tf.summary.scalar('sparsity', tf.nn.zero_fraction(output))

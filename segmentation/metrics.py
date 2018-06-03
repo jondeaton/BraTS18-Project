@@ -12,8 +12,21 @@ def _get_class(seg, pred_class):
     return _seg
 
 
+def dice_coeff(seg_true, seg_pred):
+    with tf.variable_scope("dice_coff_loss"):
+        tf.assert_equal(tf.shape(seg_true), tf.shape(seg_pred))
+        seg_true_flat = tf.layers.flatten(seg_true)
+        seg_pred_flat = tf.layers.flatten(seg_pred)
 
-def dice_coeff(seg_true, seg_pred, pred_class=1):
+        intersection = tf.multiply(seg_true_flat, seg_pred_flat, name="intersection")
+        intersect = tf.reduce_sum(intersection)
+
+        smooth = 0.01
+        dice = tf.divide(2 * intersect + smooth, tf.reduce_sum(seg_true_flat) + tf.reduce_sum(seg_pred_flat) + smooth)
+        return dice
+
+
+def multi_class_dice(seg_true, seg_pred, pred_class=1):
     with tf.variable_scope("dice_coff_loss"):
         tf.assert_equal(tf.shape(seg_true), tf.shape(seg_pred))
 
@@ -26,7 +39,6 @@ def dice_coeff(seg_true, seg_pred, pred_class=1):
         smooth = 0.01
         dice = tf.divide(2 * intersect + smooth, tf.reduce_sum(seg_true_flat) + tf.reduce_sum(seg_pred_flat) + smooth)
         return dice
-
 
 def dice_loss(seg_true, seg_pred):
     return - dice_coeff(seg_true, seg_pred)

@@ -44,8 +44,8 @@ def _crop(mri, seg):
 
 def _make_multi_class(mri, seg):
     # Turns the segmentation into a one-hot-multi-class
-    _seg = tf.one_hot(tf.cast(seg, tf.int32), depth=3, axis=0)
-    _seg = tf.slice(_seg, begin=[1, 0, 0, 0], size=[-1] * 4)
+    _seg = tf.one_hot(tf.cast(seg, tf.int32), depth=4, axis=0)
+    # _seg = tf.slice(_seg, begin=[1, 0, 0, 0], size=[-1] * 4)
     return mri, _seg
 
 
@@ -140,8 +140,12 @@ def train(train_dataset, test_dataset):
     # Create the model's computation graph and cost function
     logger.info("Instantiating model...")
     output, is_training = UNet.model(input, seg)
-    dice = dice_coeff(seg, output)
-    cost = - dice
+
+    x_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=seg, logits=output)
+    cost = tf.reduce_mean (x_entropy)
+
+    # dice = dice_coeff(seg, output)
+    # cost = - dice
 
     # Define the optimization strategy
     global_step = tf.Variable(0, name='global_step', trainable=False)

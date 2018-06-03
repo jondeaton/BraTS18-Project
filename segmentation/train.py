@@ -56,6 +56,12 @@ def _reshape(mri, seg):
     return mri, _seg
 
 
+def _to_single_class(mri, seg):
+    zeros = tf.zeros(tf.shape(seg))
+    ones = tf.ones(tf.shape(seg))
+    _seg = tf.where(tf.greater(seg, 0), ones, zeros)
+    return mri, _seg
+
 def _to_prediction(segmentation_softmax):
     pred = tf.argmax(segmentation_softmax, axis=1)
     pred_seg = tf.one_hot(tf.cast(pred, tf.int32), depth=4, axis=1)
@@ -74,6 +80,9 @@ def create_data_pipeline(multi_class):
         test_dataset = test_dataset.map(_reshape)
         validation_dataset = validation_dataset.map(_reshape)
 
+        train_dataset = train_dataset.map(_to_single_class)
+        test_dataset = test_dataset.map(_to_single_class)
+        validation_dataset = validation_dataset.map(_to_single_class)
 
     # Crop them to be 240,240,152
     train_dataset = train_dataset.map(_crop)

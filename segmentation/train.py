@@ -51,7 +51,7 @@ def _make_multi_class(mri, seg):
 
 def _to_prediction(segmentation_softmax):
     pred = tf.argmax(segmentation_softmax, axis=1)
-    pred_seg = tf.one_hot(tf.cast(pred, tf.int32), depth=4, axis=0)
+    pred_seg = tf.one_hot(tf.cast(pred, tf.int32), depth=4, axis=1)
     return pred_seg
 
 

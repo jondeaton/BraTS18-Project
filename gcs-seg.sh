@@ -7,8 +7,8 @@ project_name="BraTS"
 # Get the current project ID
 project_id=`gcloud config list project --format "value(core.project)"`
 
-timestamp=`date +%s`
-job_name=$project_name"_job_$timestamp"
+now=$(date +"%Y%m%d_%H%M%S")
+job_name=$project_name"_job_$now"
 bucket_name="brats-20x"
 cloud_config="$project_directory/cloudml-gpu.yaml"
 train_config="config_gcp.ini"

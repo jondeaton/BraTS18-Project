@@ -36,7 +36,6 @@ class Params():
             params = json.load(f)
             self.__dict__.update(params)
 
-
     @property
     def adam(self):
         return self.dict["adam"]

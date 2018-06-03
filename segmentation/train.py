@@ -44,7 +44,7 @@ def _crop(mri, seg):
 
 def _make_multi_class(mri, seg):
     # Turns the segmentation into a one-hot-multi-class
-    _seg = tf.one_hot(tf.cast(seg, tf.int32), depth=4, axis=0)
+    _seg = tf.one_hot(tf.cast(seg, tf.uint8), depth=3, axis=0)
     return mri, _seg
 
 
@@ -226,18 +226,20 @@ def parse_args():
     info_options.add_argument("--job-dir", default=None, help="Job directory")
     info_options.add_argument("--job-name", default="segmentation", help="Job name")
     info_options.add_argument("-gcs", "--google-cloud", action='store_true', help="Running in Google Cloud")
-    info_options.add_argument("--config", required=True, type=str, help="Config file.")
     info_options.add_argument("-params", "--params", type=str, help="Hyperparameters json file")
+    info_options.add_argument("--config", required=True, type=str, help="Configuration file")
 
     input_options = parser.add_argument_group("Input")
     input_options.add_argument('--brats', help="BraTS root data set directory")
     input_options.add_argument('--year', type=int, default=2018, help="BraTS year")
+    input_options.add_argument('-tfrecords', '--tfrecords', required=False, type=str, help="TFRecords location")
 
     output_options = parser.add_argument_group("Output")
     output_options.add_argument("--model-file", help="File to save trained model in")
 
     tensorboard_options = parser.add_argument_group("TensorBoard")
     tensorboard_options.add_argument("--tensorboard", help="TensorBoard directory")
+    tensorboard_options.add_argument("--log-frequency", help="Logging frequency")
 
     logging_options = parser.add_argument_group("Logging")
     logging_options.add_argument('--log', dest="log_level", default="DEBUG", help="Logging level")
@@ -278,7 +280,6 @@ def main():
     if args.google_cloud:
         logger.info("Running on Google Cloud.")
 
-    logger.debug("Config file: %s" % args.config)
     global config
     config = Configuration(args.config)
 
@@ -298,7 +299,6 @@ def main():
     logger.info("Creating data pre-processing pipeline...")
     logger.debug("BraTS data set directory: %s" % config.brats_directory)
     logger.debug("TFRecords: %s" % config.tfrecords_dir)
-
     train_dataset, test_dataset, validation_dataset = create_data_pipeline(params.multi_class)
 
     logger.info("Initiating training...")

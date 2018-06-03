@@ -3,6 +3,7 @@ import tensorflow as tf
 
 def dice_coeff(seg_true, seg_pred):
     with tf.variable_scope("dice_coff_loss"):
+        tf.Assert(tf.equal(tf.shape(seg_true), tf.shape(seg_pred)))
         seg_true_flat = tf.layers.flatten(seg_true)
         seg_pred_flat = tf.layers.flatten(seg_pred)
         intersection = tf.multiply(seg_true_flat, seg_pred_flat, name="intersection")

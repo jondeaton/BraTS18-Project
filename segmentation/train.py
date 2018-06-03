@@ -78,12 +78,12 @@ def create_data_pipeline(multi_class):
 
     datasets = [train_dataset, test_dataset, validation_dataset]
     for i, dataset in enumerate(datasets):
-
         if multi_class:
             datasets[i] = datasets[i].map(_make_multi_class)
         else:
             datasets[i] = datasets[i].map(_reshape).map(_to_single_class)
-        datasets[i].map(_crop)
+        datasets[i] = datasets[i].map(_crop)
+    
     train_dataset, test_dataset, validation_dataset = datasets
 
     # Dataset augmentation

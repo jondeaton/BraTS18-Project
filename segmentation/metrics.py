@@ -1,7 +1,6 @@
 
 import tensorflow as tf
 
-
 def dice_coeff(seg_true, seg_pred):
     with tf.variable_scope("dice_coff_loss"):
         seg_true_flat = tf.layers.flatten(seg_true)

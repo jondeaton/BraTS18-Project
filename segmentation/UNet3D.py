@@ -85,10 +85,12 @@ def model(input, seg):
         kernel_initializer = tf.truncated_normal_initializer(stddev=5e-2, dtype=tf.float32)
         bias_initializer = tf.zeros_initializer(dtype=tf.float32)
 
-        output = tf.layers.conv3d(level1_up,
+        final_conv = tf.layers.conv3d(level1_up,
                                   filters=4, kernel_size=(1,1,1), strides=(1,1,1), padding='same',
-                                  data_format='channels_first', activation=tf.nn.softmax, use_bias=True,
+                                  data_format='channels_first', activation=None, use_bias=True,
                                   kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
+
+        output = tf.nn.softmax(final_conv, axis=1, name="softmax")
 
         tf.summary.histogram('activations', output)
         tf.summary.scalar('sparsity', tf.nn.zero_fraction(output))

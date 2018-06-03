@@ -49,6 +49,12 @@ def _make_multi_class(mri, seg):
     return mri, _seg
 
 
+def _to_prediction(segmentation_softmax):
+    pred = tf.argmax(segmentation_softmax, axis=1)
+    pred_seg = tf.one_hot(tf.cast(pred, tf.int32), depth=4, axis=0)
+    return pred_seg
+
+
 def create_data_pipeline(multi_class):
     train_dataset, test_dataset, validation_dataset = load_tfrecord_datasets(config.tfrecords_dir)
 
@@ -141,11 +147,11 @@ def train(train_dataset, test_dataset):
     logger.info("Instantiating model...")
     output, is_training = UNet.model(input, seg)
 
+    # Cost function
     x_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=seg, logits=output)
-    cost = tf.reduce_mean (x_entropy)
-
-    dice = dice_coeff(seg, output)
-    # cost = - dice
+    cost = tf.reduce_mean(x_entropy)
+    
+    dice = dice_coeff(seg, _to_prediction(output))
 
     # Define the optimization strategy
     global_step = tf.Variable(0, name='global_step', trainable=False)

@@ -144,8 +144,8 @@ def train(train_dataset, test_dataset):
     x_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=seg, logits=output)
     cost = tf.reduce_mean (x_entropy)
 
-    # dice = dice_coeff(seg, output)
-    # cost = - dice
+    dice = dice_coeff(seg, output)
+    cost = - dice
 
     # Define the optimization strategy
     global_step = tf.Variable(0, name='global_step', trainable=False)

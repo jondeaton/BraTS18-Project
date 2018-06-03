@@ -44,7 +44,7 @@ def _crop(mri, seg):
 
 def _make_multi_class(mri, seg):
     # Turns the segmentation into a one-hot-multi-class
-    _seg = tf.one_hot(tf.cast(seg, tf.uint8), depth=3, axis=0)
+    _seg = tf.one_hot(tf.cast(seg, tf.int32), depth=3, axis=0)
     return mri, _seg
 
 

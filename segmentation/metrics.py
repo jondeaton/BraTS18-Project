@@ -2,8 +2,8 @@
 import tensorflow as tf
 
 def _get_class(seg, pred_class):
-    size = [-1] * 4
-    begin = [0] * 4
+    size = [-1] * 5
+    begin = [0] * 5
 
     size[pred_class] = 1
     begin[1] = pred_class
@@ -16,7 +16,7 @@ def _get_class(seg, pred_class):
 def dice_coeff(seg_true, seg_pred, pred_class=1):
     with tf.variable_scope("dice_coff_loss"):
         tf.assert_equal(tf.shape(seg_true), tf.shape(seg_pred))
-        
+
         seg_true_flat = tf.layers.flatten(_get_class(seg_true, pred_class))
         seg_pred_flat = tf.layers.flatten(_get_class(seg_pred, pred_class))
 

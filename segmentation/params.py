@@ -7,6 +7,11 @@ From: cs230-code-examples
 
 import os
 import json
+from enum import Enum
+
+class loss(Enum):
+    dice = 1
+    cross_entropy = 2
 
 dir_name = os.path.dirname(__file__)
 default_params_file = os.path.join(dir_name, "params.json")
@@ -35,6 +40,11 @@ class Params():
         with open(json_path) as f:
             params = json.load(f)
             self.__dict__.update(params)
+
+    @property
+    def dict(self):
+        """Gives dict-like access to Params instance by `params.dict['learning_rate']`"""
+        return self.__dict__
 
     @property
     def adam(self):
@@ -81,9 +91,11 @@ class Params():
         return self.dict["multi_class"]
 
     @property
-    def dict(self):
-        """Gives dict-like access to Params instance by `params.dict['learning_rate']`"""
-        return self.__dict__
+    def loss(self):
+        if self.dict["loss"] == "dice":
+            return loss.dice
+        else:
+            return loss.cross_entropy
 
 
 def save_dict_to_json(d, json_path):

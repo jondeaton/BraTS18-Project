@@ -12,5 +12,6 @@
   "prefetch_buffer_size": 16,
   "shuffle_buffer_size": 16,
   "augment": true,
-  "multi_class": true
+  "multi_class": false,
+  "loss": "dice"
 }

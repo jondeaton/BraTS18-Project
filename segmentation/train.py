@@ -145,7 +145,7 @@ def train(train_dataset, test_dataset):
     cost = tf.reduce_mean (x_entropy)
 
     dice = dice_coeff(seg, output)
-    cost = - dice
+    # cost = - dice
 
     # Define the optimization strategy
     global_step = tf.Variable(0, name='global_step', trainable=False)

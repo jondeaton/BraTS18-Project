@@ -22,7 +22,7 @@ from augmentation.augmentation import augment_training_set
 import segmentation.UNet3D as UNet
 from segmentation.metrics import dice_coeff, dice_loss, multi_class_dice
 from segmentation.config import Configuration
-from segmentation.params import Params
+from segmentation.params import Params, loss
 from BraTS.modalities import mri_shape, seg_shape
 
 logger = logging.getLogger()
@@ -62,32 +62,29 @@ def _to_single_class(mri, seg):
     _seg = tf.where(tf.greater(seg, 0), ones, zeros)
     return mri, _seg
 
-def _to_prediction(segmentation_softmax):
-    pred = tf.argmax(segmentation_softmax, axis=1)
-    pred_seg = tf.one_hot(tf.cast(pred, tf.int32), depth=4, axis=1)
-    return pred_seg
 
+def _to_prediction(segmentation_softmax, multi_class):
+    pred = tf.argmax(segmentation_softmax, axis=1)
+    if multi_class:
+        pred_seg = tf.one_hot(tf.cast(pred, tf.int32), depth=4, axis=1)
+    else:
+        zeros = tf.zeros(tf.shape(segmentation_softmax))
+        ones = tf.ones(tf.shape(segmentation_softmax))
+        pred_seg = tf.where(tf.greater(segmentation_softmax, 0.5), ones, zeros)
+    return pred_seg
 
 def create_data_pipeline(multi_class):
     train_dataset, test_dataset, validation_dataset = load_tfrecord_datasets(config.tfrecords_dir)
 
-    if multi_class:
-        train_dataset = train_dataset.map(_make_multi_class)
-        test_dataset = test_dataset.map(_make_multi_class)
-        validation_dataset = validation_dataset.map(_make_multi_class)
-    else:
-        train_dataset = train_dataset.map(_reshape)
-        test_dataset = test_dataset.map(_reshape)
-        validation_dataset = validation_dataset.map(_reshape)
+    datasets = [train_dataset, test_dataset, validation_dataset]
+    for i, dataset in enumerate(datasets):
 
-        train_dataset = train_dataset.map(_to_single_class)
-        test_dataset = test_dataset.map(_to_single_class)
-        validation_dataset = validation_dataset.map(_to_single_class)
-
-    # Crop them to be 240,240,152
-    train_dataset = train_dataset.map(_crop)
-    test_dataset = test_dataset.map(_crop)
-    validation_dataset = validation_dataset.map(_crop)
+        if multi_class:
+            datasets[i] = datasets[i].map(_make_multi_class)
+        else:
+            datasets[i] = datasets[i].map(_reshape).map(_to_single_class)
+        datasets[i].map(_crop)
+    train_dataset, test_dataset, validation_dataset = datasets
 
     # Dataset augmentation
     if params.augment:
@@ -142,7 +139,6 @@ def add_summary_image_triplet(inputs_op, target_masks_op, predicted_masks_op, nu
     triplets = tf.concat([inputs_op, target_masks_op, predicted_masks_op], axis=2)
     tf.summary.image("triplets", triplets[:num_images], max_outputs=num_images)
 
-from segmentation.params import loss
 
 def train(train_dataset, test_dataset):
     """
@@ -170,10 +166,11 @@ def train(train_dataset, test_dataset):
     output, is_training = UNet.model(input, seg, params.multi_class)
 
     if params.multi_class:
-        pred = _to_prediction(output)
+        pred = _to_prediction(output, params.multi_class)
         dice = multi_class_dice(seg, pred)
     else:
-        dice = dice_coeff(seg, output)
+        pred = _to_prediction(output, params.multi_class)
+        dice = dice_coeff(seg, pred)
 
     # Cost function
     if params.loss == loss.dice:
@@ -225,6 +222,10 @@ def train(train_dataset, test_dataset):
 
                     if batch % config.tensorboard_freq == 0:
                         logger.info("Logging TensorBoard data...")
+
+
+                        add_summary_image_triplet()
+
                         # Write out stats for training
                         s = sess.run(merged_summary, feed_dict={is_training: False,
                                                                 dataset_handle: train_handle})

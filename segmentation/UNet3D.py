@@ -36,7 +36,7 @@ def conv_block(input, is_training, num_filters, name='conv'):
     Convolution and batch normalization layer
 
     :param input: The input tensor
-    :param is_training: Boolean tensor whether it is beign run on training or not
+    :param is_training: Boolean tensor whether it is being run on training or not
     :param num_filters: The number of filters to convolve on the input
     :param name: Name of the convolutional block
     :return: Tensor after convolution and batch normalization

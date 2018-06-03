@@ -148,9 +148,9 @@ def train(train_dataset, test_dataset):
     output, is_training = UNet.model(input, seg)
 
     # Cost function
-    x_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=seg, logits=output)
+    x_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=seg, logits=output, dim=1)
     cost = tf.reduce_mean(x_entropy)
-    
+
     dice = dice_coeff(seg, _to_prediction(output))
 
     # Define the optimization strategy

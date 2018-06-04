@@ -73,6 +73,7 @@ def _to_prediction(segmentation_softmax, multi_class):
         pred_seg = tf.where(tf.greater(segmentation_softmax, 0.5), ones, zeros)
     return pred_seg
 
+
 def create_data_pipeline(multi_class):
     datasets = load_tfrecord_datasets(config.tfrecords_dir)
     for i, dataset in enumerate(datasets):
@@ -167,8 +168,7 @@ def train(train_dataset, test_dataset):
         pred = _to_prediction(output, params.multi_class)
         dice = multi_class_dice(seg, pred)
     else:
-        pred = _to_prediction(output, params.multi_class)
-        dice = dice_coeff(seg, pred)
+        dice = dice_coeff(seg, output)
 
     # Cost function
     if params.loss == loss.dice:

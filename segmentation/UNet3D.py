@@ -85,7 +85,6 @@ def model(input, seg, multi_class):
         kernel_initializer = tf.truncated_normal_initializer(stddev=5e-2, dtype=tf.float32)
         bias_initializer = tf.zeros_initializer(dtype=tf.float32)
 
-
         if multi_class:
             final_conv = tf.layers.conv3d(level1_up,
                                       filters=4, kernel_size=(1,1,1), strides=(1,1,1), padding='same',
@@ -95,7 +94,7 @@ def model(input, seg, multi_class):
         else:
             output = tf.layers.conv3d(level1_up,
                                           filters=1, kernel_size=(3, 3, 3), strides=(1, 1, 1), padding='same',
-                                          data_format='channels_first', activation=tf.nn.softmax, use_bias=True,
+                                          data_format='channels_first', activation=tf.nn.sigmoid, use_bias=True,
                                           kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
 
         tf.summary.histogram('activations', output)

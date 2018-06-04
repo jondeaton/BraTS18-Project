@@ -74,16 +74,14 @@ def _to_prediction(segmentation_softmax, multi_class):
     return pred_seg
 
 def create_data_pipeline(multi_class):
-    train_dataset, test_dataset, validation_dataset = load_tfrecord_datasets(config.tfrecords_dir)
-
-    datasets = [train_dataset, test_dataset, validation_dataset]
+    datasets = load_tfrecord_datasets(config.tfrecords_dir)
     for i, dataset in enumerate(datasets):
         if multi_class:
             datasets[i] = datasets[i].map(_make_multi_class)
         else:
             datasets[i] = datasets[i].map(_reshape).map(_to_single_class)
         datasets[i] = datasets[i].map(_crop)
-    
+
     train_dataset, test_dataset, validation_dataset = datasets
 
     # Dataset augmentation

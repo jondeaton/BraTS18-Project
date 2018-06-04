@@ -220,10 +220,7 @@ def train(train_dataset, test_dataset):
 
                     if batch % config.tensorboard_freq == 0:
                         logger.info("Logging TensorBoard data...")
-
-
-                        add_summary_image_triplet()
-
+                        
                         # Write out stats for training
                         s = sess.run(merged_summary, feed_dict={is_training: False,
                                                                 dataset_handle: train_handle})

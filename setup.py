@@ -8,6 +8,8 @@ setup(name='BraTS',
       author_email="jdeaton@stanford.edu, cbackes@stanford.edu",
       license='MIT',
       install_requires=[
+          "tensorflow",
+          "tensorflow-gpu",
           "numpy",
           "matplotlib",
           "pandas",
@@ -15,5 +17,10 @@ setup(name='BraTS',
           "nipype",     # More neuro-imaging libraries
           "nilearn",
           "SimpleITK"   # For normalizing the data
+                        
+          "itk",        # The next three are for reading BraTS15 dataset
+          "pydicom",
+          "medpy",
+          "keras"
       ],
       zip_safe=False)

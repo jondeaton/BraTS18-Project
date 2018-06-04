@@ -201,7 +201,9 @@ def train(train_dataset, test_dataset):
         test_dice_avg_summary = tf.summary.scalar('test_dice_avg', tf.reduce_mean(dice))
         merged_summary = tf.summary.merge_all()
         writer = tf.summary.FileWriter(logdir=tensorboard_dir)
-        writer.add_graph(sess.graph) # Add the pretty graph viz
+        writer.add_graph(sess.graph)  # Add the pretty graph viz
+
+        saver.save(sess, config.model_file, global_step=global_step)
 
         # Training epochs
         for epoch in range(params.epochs):

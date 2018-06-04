@@ -148,6 +148,9 @@ def train(train_dataset, test_dataset):
     :return: None
     """
 
+    # Set up model-saver
+    saver = tf.train.Saver()
+
     # Set up dataset iterators
     dataset_handle = tf.placeholder(tf.string, shape=[])
     iterator = tf.data.Iterator.from_string_handle(dataset_handle,
@@ -159,10 +162,12 @@ def train(train_dataset, test_dataset):
 
     # MRI input and ground truth segmentations
     input, seg = iterator.get_next()
+    input = tf.identity(input, "input")
 
     # Create the model's computation graph and cost function
     logger.info("Instantiating model...")
     output, is_training = UNet.model(input, seg, params.multi_class)
+    output = tf.identity(output, "output")
 
     if params.multi_class:
         pred = _to_prediction(output, params.multi_class)
@@ -239,17 +244,50 @@ def train(train_dataset, test_dataset):
                         writer.add_summary(test_dice_avg_summ, global_step=sess.run(global_step))
                 except tf.errors.OutOfRangeError:
                     logger.info("End of epoch %d" % epoch)
-                    save_model(sess, "%s_e%d" % config.model_file, global_step)
+                    logger.info("Saving model...")
+                    saver.save(sess, config.model_file, global_step=global_step)
+                    logger.info("Model save complete.")
                     break
-        save_model(sess, config.model_file, global_step)
+
         logger.info("Training complete.")
 
 
-def save_model(sess, filename, global_step):
-    logger.info("Saving model to: %s ..." % filename)
-    saver = tf.train.Saver()
-    saver.save(sess, filename, global_step=global_step)
-    logger.info("Model save complete.")
+def main():
+    args = parse_args()
+
+    if args.google_cloud:
+        logger.info("Running on Google Cloud.")
+
+    global config
+    config = Configuration(args.config)
+
+    global params
+    if args.params is not None:
+        params = Params(args.params)
+    else:
+        params = Params()
+
+    # Set the TensorBoard directory
+    global tensorboard_dir
+    tensorboard_dir = os.path.join(config.tensorboard_dir, _get_job_name())
+
+    # Set random seed for reproducible results
+    tf.set_random_seed(params.seed)
+
+    logger.info("Creating data pre-processing pipeline...")
+    logger.debug("BraTS data set directory: %s" % config.brats_directory)
+    logger.debug("TFRecords: %s" % config.tfrecords_dir)
+    train_dataset, test_dataset, validation_dataset = create_data_pipeline(params.multi_class)
+
+    logger.info("Initiating training...")
+    logger.debug("TensorBoard Directory: %s" % config.tensorboard_dir)
+    logger.debug("Model save file: %s" % config.model_file)
+    logger.debug("Learning rate: %s" % params.learning_rate)
+    logger.debug("Num epochs: %s" % params.epochs)
+    logger.debug("Mini-batch size: %s" % params.mini_batch_size)
+    train(train_dataset, test_dataset)
+
+    logger.info("Exiting.")
 
 
 def parse_args():
@@ -311,44 +349,6 @@ def parse_args():
     logger.setLevel(log_level)
 
     return args
-
-
-def main():
-    args = parse_args()
-
-    if args.google_cloud:
-        logger.info("Running on Google Cloud.")
-
-    global config
-    config = Configuration(args.config)
-
-    global params
-    if args.params is not None:
-        params = Params(args.params)
-    else:
-        params = Params()
-
-    # Set the TensorBoard directory
-    global tensorboard_dir
-    tensorboard_dir = os.path.join(config.tensorboard_dir, _get_job_name())
-
-    # Set random seed for reproducible results
-    tf.set_random_seed(params.seed)
-
-    logger.info("Creating data pre-processing pipeline...")
-    logger.debug("BraTS data set directory: %s" % config.brats_directory)
-    logger.debug("TFRecords: %s" % config.tfrecords_dir)
-    train_dataset, test_dataset, validation_dataset = create_data_pipeline(params.multi_class)
-
-    logger.info("Initiating training...")
-    logger.debug("TensorBoard Directory: %s" % config.tensorboard_dir)
-    logger.debug("Model save file: %s" % config.model_file)
-    logger.debug("Learning rate: %s" % params.learning_rate)
-    logger.debug("Num epochs: %s" % params.epochs)
-    logger.debug("Mini-batch size: %s" % params.mini_batch_size)
-    train(train_dataset, test_dataset)
-
-    logger.info("Exiting.")
 
 
 if __name__ == "__main__":

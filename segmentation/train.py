@@ -220,7 +220,7 @@ def train(train_dataset, test_dataset):
 
                     if batch % config.tensorboard_freq == 0:
                         logger.info("Logging TensorBoard data...")
-                        
+
                         # Write out stats for training
                         s = sess.run(merged_summary, feed_dict={is_training: False,
                                                                 dataset_handle: train_handle})
@@ -237,16 +237,19 @@ def train(train_dataset, test_dataset):
 
                         writer.add_summary(test_dice_summ, global_step=sess.run(global_step))
                         writer.add_summary(test_dice_avg_summ, global_step=sess.run(global_step))
-
                 except tf.errors.OutOfRangeError:
                     logger.info("End of epoch %d" % epoch)
+                    save_model(sess, "%s_e%d" % config.model_file, global_step)
                     break
+        save_model(sess, config.model_file, global_step)
         logger.info("Training complete.")
 
-        logger.info("Saving model to: %s ..." % config.model_file)
-        saver = tf.train.Saver()
-        saver.save(sess, config.model_file, global_step=global_step)
-        logger.info("Model save complete.")
+
+def save_model(sess, filename, global_step):
+    logger.info("Saving model to: %s ..." % filename)
+    saver = tf.train.Saver()
+    saver.save(sess, filename, global_step=global_step)
+    logger.info("Model save complete.")
 
 
 def parse_args():

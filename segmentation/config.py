@@ -30,7 +30,6 @@ class Configuration(object):
         self.tensorboard_dir = os.path.expanduser(c["TensorFlow"]["tensorboard-dir"])
         self.tensorboard_freq = int(c["TensorFlow"]["log-frequency"])
 
-
     def overload(self, args):
         assert args is not None
 

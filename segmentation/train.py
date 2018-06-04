@@ -148,9 +148,6 @@ def train(train_dataset, test_dataset):
     :return: None
     """
 
-    # Set up model-saver
-    saver = tf.train.Saver()
-
     # Set up dataset iterators
     dataset_handle = tf.placeholder(tf.string, shape=[])
     iterator = tf.data.Iterator.from_string_handle(dataset_handle,
@@ -190,9 +187,10 @@ def train(train_dataset, test_dataset):
     init = tf.global_variables_initializer()
     with tf.Session() as sess:
 
-        # Initialize graph and data iterators
+        # Initialize graph, data iterators, and model saver
         sess.run(init)
         train_handle = sess.run(train_iterator.string_handle())
+        saver = tf.train.Saver()
 
         # Configure TensorBard
         tf.summary.scalar('learning_rate', learning_rate)

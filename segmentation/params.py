@@ -51,6 +51,10 @@ class Params():
         return self.dict["adam"]
 
     @property
+    def dropout(self):
+        return self.dict["dropout"]
+
+    @property
     def learning_rate(self):
         return self.dict["learning_rate"]
 
@@ -97,6 +101,21 @@ class Params():
         else:
             return loss.cross_entropy
 
+    @property
+    def patch(self):
+        return self.dict["patch"]
+
+    @property
+    def patch_shape(self):
+        return self.dict["patch_shape"]
+
+    @property
+    def patches_per_image(self):
+        return self.dict["patches_per_image"]
+
+    @property
+    def summation(self):
+        return self.dict["summation"]
 
 def save_dict_to_json(d, json_path):
     """

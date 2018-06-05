@@ -74,7 +74,7 @@ def _to_prediction(segmentation_softmax, multi_class):
         pred_seg = tf.where(tf.greater(segmentation_softmax, 0.5), ones, zeros)
     return pred_seg
 
-'''def convert_patch_to_original(output, patch_indices, default_pix_value = 0):
+def convert_patch_to_original(output, patch_indices, default_pix_value = 0):
     
     original = tf.zeros(tf.shape(seg_shape))
     
@@ -92,16 +92,18 @@ def _to_prediction(segmentation_softmax, multi_class):
     zeros = tf.zeros(tf.shape(segmentation_softmax))
     ones = tf.ones(tf.shape(segmentation_softmax))
     pred_seg = tf.where(tf.greater(segmentation_softmax, 0.5), ones, zeros)
-    return pred_seg'''
+    return pred_seg
 
 
-def create_data_pipeline(multi_class):
+def create_data_pipeline(multi_class, patch, patch_indices):
     datasets = load_tfrecord_datasets(config.tfrecords_dir)
     for i, dataset in enumerate(datasets):
         if multi_class:
             datasets[i] = datasets[i].map(_make_multi_class)
         else:
             datasets[i] = datasets[i].map(_reshape).map(_to_single_class)
+        if patch:
+            datasets[i] = datasets[i].map(get_patches(mri, seg, patch_indices))
 
         datasets[i] = datasets[i].map(_crop)
 
@@ -185,11 +187,11 @@ def train(train_dataset, test_dataset):
     
     # Create the model's computation graph and cost function
     logger.info("Instantiating model...")
-    output, is_training = UNet.model(input, seg, params.multi_class, params.patch)
+    output, is_training = UNet.model(input, seg, params.multi_class)
     output = tf.identity(output, "output")
 
-    '''if params.patch:
-        output = _to_patch_prediction(output)'''
+    if params.patch:
+        output = _to_patch_prediction(output)
 
     if params.multi_class:
         pred = _to_prediction(output, params.multi_class)
@@ -304,10 +306,10 @@ def main():
     logger.debug("TFRecords: %s" % config.tfrecords_dir)
     
     #get patch indices
-    '''if params.patch:
-        patch_indices = get_patch_indices(params.patches_per_image, mri_shape, params.patch_shape, seg)'''
+    if patch:
+        patch_indices = get_patch_indices(params.patches_per_image, mri_shape, params.patch_shape, seg)
 
-    train_dataset, test_dataset, validation_dataset = create_data_pipeline(params.multi_class)
+    
 
     logger.info("Initiating training...")
     logger.debug("TensorBoard Directory: %s" % config.tensorboard_dir)
@@ -315,7 +317,7 @@ def main():
     logger.debug("Learning rate: %s" % params.learning_rate)
     logger.debug("Num epochs: %s" % params.epochs)
     logger.debug("Mini-batch size: %s" % params.mini_batch_size)
-    train(train_dataset, test_dataset)
+    train(train_dataset, test_dataset, patch_indices)
 
     logger.info("Exiting.")
 

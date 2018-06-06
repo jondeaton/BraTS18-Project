@@ -219,7 +219,7 @@ def train(train_dataset, test_dataset):
         tf.summary.scalar('train_dice', train_dice)
 
         with tf.name_scope('train_cost'):
-            train_cost = cost
+            train_cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=seg, logits=output, dim=1))
             tf.summary.histogram("train_cost_hist", train_cost)
         tf.summary.scalar('train_cost', train_cost)
         

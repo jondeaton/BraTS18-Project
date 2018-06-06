@@ -249,7 +249,7 @@ def train(train_dataset, test_dataset):
                     logger.info("Epoch: %d, Batch %d: cost: %f, dice: %f" % (epoch, batch, c, d))
                     writer.add_summary(summary, global_step=sess.run(global_step))
 
-                    if batch*mini_batch_size % config.tensorboard_freq == 0:
+                    if batch*params.mini_batch_size % config.tensorboard_freq == 0:
                         logger.info("Logging TensorBoard data...")
 
                         # Generate stats for test dataset
@@ -267,7 +267,7 @@ def train(train_dataset, test_dataset):
                     batch += 1
                 except tf.errors.OutOfRangeError:
                     logger.info("End of epoch %d" % epoch)
-                    logger.info("Average dice of epoch: %d" % total_dice_epoch/params.epoch*mini_batch_size)
+                    logger.info("Average dice of epoch: %d" % total_dice_epoch/params.epoch*params.mini_batch_size)
                     logger.info("Saving model...")
                     saver.save(sess, config.model_file, global_step=global_step)
                     logger.info("Model save complete.")

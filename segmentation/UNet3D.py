@@ -83,9 +83,9 @@ def model(input, seg, multi_class, patch):
         conv2 = conv_block(conv1, is_training, num_filters=32, name="conv2")
 
     with tf.variable_scope("up"):
-        level3_up = up_block(conv2, l3_conv, is_training, num_filters=16, name="level3_up")
-        level2_up = up_block(level3_up, l2_conv, is_training, num_filters=8, name="level2_up")
-        level1_up = up_block(level2_up, l1_conv, is_training, num_filters=4, name="level1_up")
+        level3_up = up_block(conv2, l3_conv, is_training, num_filters=16, name="level3")
+        level2_up = up_block(level3_up, l2_conv, is_training, num_filters=8, name="level2")
+        level1_up = up_block(level2_up, l1_conv, is_training, num_filters=4, name="level1")
 
    
     with tf.variable_scope("output"):

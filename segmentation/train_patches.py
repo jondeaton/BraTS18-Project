@@ -242,11 +242,12 @@ def train(train_dataset, test_dataset):
             batch = 0
             while True:
                 try:
-                    _, c, d = sess.run([optimizer, cost, dice],
+                    summary, _, c, d = sess.run([merged_summary, optimizer, cost, dice],
                                        feed_dict={is_training: True,
                                                   dataset_handle: train_handle})
 
                     logger.info("Epoch: %d, Batch %d: cost: %f, dice: %f" % (epoch, batch, c, d))
+                    writer.add_summary(summary, global_step=sess.run(global_step))
                     epoch_cost += epoch_cost / params.epochs
                     batch += 1
 
@@ -254,16 +255,16 @@ def train(train_dataset, test_dataset):
                         logger.info("Logging TensorBoard data...")
 
                         # Write out stats for training
-                        s = sess.run(merged_summary, feed_dict={is_training: False,
-                                                                dataset_handle: train_handle})
-                        writer.add_summary(s, global_step=sess.run(global_step))
+                        #s = sess.run(merged_summary, feed_dict={is_training: False,
+                                                                #dataset_handle: train_handle})
+                        #writer.add_summary(s, global_step=sess.run(global_step))
 
                         # Generate stats for test dataset
                         sess.run(test_iterator.initializer)
                         test_handle = sess.run(test_iterator.string_handle())
 
-                        test_dice, test_dice_summ, test_dice_avg_summ = \
-                            sess.run([dice, test_dice_summary, test_dice_avg_summary],
+                        summary_test, test_dice, test_dice_summ, test_dice_avg_summ = \
+                            sess.run([merged_summary, dice, test_dice_summary, test_dice_avg_summary],
                                      feed_dict={is_training: False,
                                                 dataset_handle: test_handle})
 

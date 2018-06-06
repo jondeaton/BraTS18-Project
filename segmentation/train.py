@@ -233,7 +233,8 @@ def train(train_dataset, test_dataset):
         merged_summary = tf.summary.merge_all()
         
         train_writer = tf.summary.FileWriter(tensorboard_dir+'/train', sess.graph)
-        test_writer = tf.summary.FileWriter(tensorboard_dir+'/test')
+        
+        test_writer = tf.summary.FileWriter(tensorboard_dir + '/test')
 
         # Initialize graph, data iterators, and model saver
         sess.run(init)

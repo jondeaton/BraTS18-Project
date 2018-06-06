@@ -252,7 +252,7 @@ def train(train_dataset, test_dataset):
             batch = 0
             while True:
                 try:
-                    batch*params.mini_batch_size % config.tensorboard_freq == 0:
+                    
                     summ, tr_cost, tr_dice = sess.run([merged_summary, train_cost, train_dice],
                                        feed_dict={is_training: True,
                                                   dataset_handle: train_handle})

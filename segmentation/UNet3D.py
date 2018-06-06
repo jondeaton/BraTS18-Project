@@ -80,7 +80,7 @@ def model(input, seg, multi_class, patch):
 
     with tf.variable_scope("level4"):
         conv1 = conv_block(level3, is_training, num_filters=32, name="conv1")
-        conv2 = conv_block(conv1, is_training, num_filters=32, name="conv2")
+        conv2 = conv_block(conv1, is_training, num_filters=32, name="conv2") #can make this 64 filters
 
     with tf.variable_scope("up"):
         level3_up = up_block(conv2, l3_conv, is_training, num_filters=16, name="level3")
@@ -94,7 +94,6 @@ def model(input, seg, multi_class, patch):
 
         if Params.dropout:
             add_dropout(level1_up, is_training, .2)
-
 
         if multi_class:
             final_conv = tf.layers.conv3d(level1_up,

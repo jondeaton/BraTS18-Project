@@ -213,14 +213,20 @@ def train(train_dataset, test_dataset):
     
     with tf.Session() as sess:
 
-        # Configure TensorBard
-        #tf.summary.scalar('learning_rate', learning_rate)
-        tf.summary.scalar('train_dice', dice)
-        tf.summary.histogram("train_dice", dice)
-        tf.summary.scalar('training_cost', cost)
-        test_histogram = tf.summary.histogram('test_dice', dice)
-        test_dice_average = tf.summary.scalar('test_dice_avg', tf.reduce_mean(dice))
-        merged_summary = tf.summary.merge_all()
+        # Configure Tensorboard training data
+        train_dice = tf.summary.scalar('train_dice', dice)
+        train_dice_histogram = tf.summary.histogram("train_dice_histogram", dice)
+        train_dice_average = tf.summary.scalar('train_dice_average', tf.reduce_mean(dice))
+        train_cost = tf.summary.scalar('train_cost', cost)
+        merged_summary_train = tf.summary.merge([train_dice, train_dice_histogram, train_dice_average, train_cost])
+        
+        # Configure Tensorboard test data
+        test_dice = tf.summary.scalar('test_dice', dice)
+        test_dice_histogram = tf.summary.histogram('test_dice_histogram', dice)
+        test_dice_average = tf.summary.scalar('test_dice_average', tf.reduce_mean(dice))
+        test_cost = tf.summary.scalar('test_cost', cost)
+        merged_summary_test = tf.summary.merge([test_dice, test_dice_histogram, test_dice_average, test_cost])
+
         writer = tf.summary.FileWriter(logdir=tensorboard_dir)
         writer.add_graph(sess.graph)  # Add the pretty graph viz
 
@@ -242,27 +248,26 @@ def train(train_dataset, test_dataset):
 
             while True:
                 try:
-                    summary, _, c, d = sess.run([merged_summary, optimizer, cost, dice],
+                    train_summary, _, c, d = sess.run([merged_summary_train, optimizer, cost, dice],
                                        feed_dict={is_training: True,
                                                   dataset_handle: train_handle})
 
                     logger.info("Epoch: %d, Batch %d: cost: %f, dice: %f" % (epoch, batch, c, d))
-                    writer.add_summary(summary, global_step=sess.run(global_step))
+                    writer.add_summary(train_summary, global_step=sess.run(global_step))
 
-                    if batch*params.mini_batch_size % config.tensorboard_freq == 0:
-                        logger.info("Logging TensorBoard data...")
+                    if tf.round(batch*params.mini_batch_size) % config.tensorboard_freq == 0:
+                        logger.info("Getting TensorBoard test data...")
 
                         # Generate stats for test dataset
                         sess.run(test_iterator.initializer)
                         test_handle = sess.run(test_iterator.string_handle())
 
-                        test_dice, test_hist = sess.run([test_dice_average, test_dice_histogram],
+                        test_summary, test_avg = sess.run([merged_summary_test, test_dice_average],
                                             feed_dict={is_training: False,
                                                 dataset_handle: test_handle})
 
-                        writer.add_summary(test_dice_summ, global_step=sess.run(global_step))
-                        writer.add_summary(test_dice_avg_summ, global_step=sess.run(global_step))
-                
+                        writer.add_summary(test_summary, global_step=sess.run(global_step))
+                        logger.info("Average test dice score: %f" % (test_avg))
                     total_dice_epoch += dice
                     batch += 1
                 except tf.errors.OutOfRangeError:

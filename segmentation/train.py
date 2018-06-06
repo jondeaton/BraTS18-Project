@@ -201,7 +201,7 @@ def train(train_dataset, test_dataset):
     if params.loss == loss.dice:
         cost = - dice
     else:
-        x_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=seg, logits=output, dim=1)
+        x_entropy = tf.nn.sigmoid_cross_entropy_with_logits(labels=seg, logits=output)
         cost = tf.reduce_mean(x_entropy)
 
     # Define the optimization strategy

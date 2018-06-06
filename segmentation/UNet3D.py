@@ -25,7 +25,7 @@ def up_block(input, shortcut, is_training, num_filters, name="up_level"):
                                             filters=num_filters, kernel_size=(3,3,3), strides=(2,2,2),
                                             padding='same', data_format='channels_first', name="deconv")
         if Params.summation:
-            concat = deconv+shortcut
+            concat = tf.add(deconv,shortcut)
         else:
             concat = tf.concat(values=[deconv, shortcut], axis=1, name="concat")
         conv1 = conv_block(concat, is_training, num_filters=num_filters, name='conv1')

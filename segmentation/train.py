@@ -232,8 +232,8 @@ def train(train_dataset, test_dataset):
         tf.summary.scalar('learning_rate', learning_rate)
         merged_summary = tf.summary.merge_all()
         
-        train_writer = tf.summary.FileWriter(logdir=tensorboard_dir, sess.graph)
-        test_writer = tf.summary.FileWriter(logdir=tensorboard_dir)
+        train_writer = tf.summary.FileWriter(tensorboard_dir+'/train', sess.graph)
+        test_writer = tf.summary.FileWriter(tensorboard_dir_'test')
 
         # Initialize graph, data iterators, and model saver
         sess.run(init)
@@ -252,7 +252,7 @@ def train(train_dataset, test_dataset):
             batch = 0
             while True:
                 try:
-                    
+
                     summ, tr_cost, tr_dice = sess.run([merged_summary, train_cost, train_dice],
                                        feed_dict={is_training: True,
                                                   dataset_handle: train_handle})

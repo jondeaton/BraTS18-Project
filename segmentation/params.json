@@ -17,7 +17,7 @@
   "shuffle_buffer_size": 16,
   "augment": true,
   "multi_class": false,
-  "loss": "cross_entropy",
+  "loss": "dice",
 
   "patch": false,
   "patch_shape": [60,60,60],

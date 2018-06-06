@@ -214,17 +214,17 @@ def train(train_dataset, test_dataset):
     with tf.Session() as sess:
         # Configure TensorBard
         with tf.name_scope('train_dice'):
-            train_dice = dice_coeff(seg, output)
+            train_dice = dice
             tf.summary.histogram("train_dice_hist", train_dice)
         tf.summary.scalar('train_dice', train_dice)
 
         with tf.name_scope('train_cost'):
-            train_cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=seg, logits=output))
+            train_cost = cost
             tf.summary.histogram("train_cost_hist", train_cost)
         tf.summary.scalar('train_cost', train_cost)
         
         with tf.name_scope('test_dice'):
-            test_dice = dice_coeff(seg, output)
+            test_dice = dice
             tf.summary.histogram('test_dice_hist', test_dice)
             tf.summary.scalar('test_dice_avg', tf.reduce_mean(tf.cast(test_dice, tf.float32)))
         tf.summary.scalar('test_dice', test_dice)

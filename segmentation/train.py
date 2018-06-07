@@ -239,7 +239,7 @@ def train(train_dataset, test_dataset):
         saver.save(sess, config.model_file, global_step=global_step)
 
         # frequency (number of batches) after which we display test error
-        tb_freq = np.round(100/params.mini_batch_size)
+        tb_freq = np.round(1)
         
         # Training epochs
         for epoch in range(params.epochs):
@@ -271,7 +271,7 @@ def train(train_dataset, test_dataset):
                                                 dataset_handle: test_handle})
 
                         writer.add_summary(test_summary, global_step=sess.run(global_step))
-                        logger.info("Average test dice score: %f" % (test_avg))
+                        logger.info("Average test dice score: %f" % test_avg)
             
                 except tf.errors.OutOfRangeError:
                     logger.info("End of epoch %d" % epoch)

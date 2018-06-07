@@ -19,7 +19,7 @@ def down_block(input, is_training, num_filters, name='down_level'):
         return max_pool, conv2
 
 
-def up_block(input, shortcut, is_training, num_filters, name="up_level"):
+def up_block(input, shortcut, is_training, num_filters, name="up_level", final_block = False):
     with tf.variable_scope(name):
         deconv = tf.layers.conv3d_transpose(input,
                                             filters=num_filters, kernel_size=(3,3,3), strides=(2,2,2),
@@ -30,7 +30,12 @@ def up_block(input, shortcut, is_training, num_filters, name="up_level"):
             concat = tf.concat(values=[deconv, shortcut], axis=1, name="concat")
         conv1 = conv_block(concat, is_training, num_filters=num_filters, name='conv1')
         conv2 = conv_block(conv1, is_training, num_filters=num_filters, name='conv2')
-        return conv2
+
+        if final_block and Params.summation:
+            conv3 = conv_block(conv2, is_training, num_filters=4, name='conv3')
+            return conv3
+        else:
+            return conv2
 
 
 def conv_block(input, is_training, num_filters, name='conv'):
@@ -74,18 +79,18 @@ def model(input, seg, multi_class, patch):
     is_training = tf.placeholder(tf.bool)
 
     with tf.variable_scope("down"):
-        level1, l1_conv = down_block(input, is_training, num_filters=4, name="down_level1")
-        level2, l2_conv = down_block(level1, is_training, num_filters=8, name="down_level2")
-        level3, l3_conv = down_block(level2, is_training, num_filters=16, name="down_level3")
+        level1, l1_conv = down_block(input, is_training, num_filters=8, name="down_level1")
+        level2, l2_conv = down_block(level1, is_training, num_filters=16, name="down_level2")
+        level3, l3_conv = down_block(level2, is_training, num_filters=32, name="down_level3")
 
     with tf.variable_scope("level4"):
-        conv1 = conv_block(level3, is_training, num_filters=32, name="conv1")
-        conv2 = conv_block(conv1, is_training, num_filters=32, name="conv2") #can make this 64 filters
+        conv1 = conv_block(level3, is_training, num_filters=64, name="conv1")
+        conv2 = conv_block(conv1, is_training, num_filters=64, name="conv2") #can make this 64 filters
 
     with tf.variable_scope("up"):
-        level3_up = up_block(conv2, l3_conv, is_training, num_filters=16, name="level3")
-        level2_up = up_block(level3_up, l2_conv, is_training, num_filters=8, name="level2")
-        level1_up = up_block(level2_up, l1_conv, is_training, num_filters=4, name="level1")
+        level3_up = up_block(conv2, l3_conv, is_training, num_filters=32, name="level3")
+        level2_up = up_block(level3_up, l2_conv, is_training, num_filters=16, name="level2")
+        level1_up = up_block(level2_up, l1_conv, is_training, num_filters=8, name="level1", final_block = True)
 
    
     with tf.variable_scope("output"):

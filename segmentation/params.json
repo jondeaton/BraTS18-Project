@@ -4,20 +4,20 @@
   "summation": true,
   "adam": true,
   
-  "dropout": false,
+  "dropout": true,
 
   "learning_rate": 0.0001,
   "learning_decay_rate": 0.9,
-  "epochs": 50,
+  "epochs": 100,
   "test_batch_size": 20,
-  "mini_batch_size": 4,
+  "mini_batch_size": 1,
   "seed": 420,
   
   "prefetch_buffer_size": 16,
   "shuffle_buffer_size": 16,
-  "augment": true,
+  "augment": false,
   "multi_class": false,
-  "loss": "cross_entropy",
+  "loss": "dice",
 
   "patch": false,
   "patch_shape": [60,60,60],

@@ -260,7 +260,7 @@ def train(train_dataset, test_dataset):
                     batch += 1
 
                     if batch % tb_freq == 0:
-                        logger.info("Getting TensorBoard test data...")
+                        logger.info("Logging test data to tensorBoard")
 
                         # Generate stats for test dataset
                         sess.run(test_iterator.initializer)

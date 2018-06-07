@@ -237,15 +237,13 @@ def train(train_dataset, test_dataset):
 
         saver.save(sess, config.model_file, global_step=global_step)
 
-        # Iterate through all batches in the epoch
-        batch = 1
-
         # Training epochs
         for epoch in range(params.epochs):
             sess.run(train_iterator.initializer)
-
-            total_dice_epoch = 0.0
-
+            
+            # Iterate through all batches in the epoch
+            batch = 0
+            
             while True:
                 try:
                     train_summary, _, c, d = sess.run([merged_summary_train, optimizer, cost, dice],
@@ -255,7 +253,10 @@ def train(train_dataset, test_dataset):
                     logger.info("Epoch: %d, Batch %d: cost: %f, dice: %f" % (epoch, batch, c, d))
                     writer.add_summary(train_summary, global_step=sess.run(global_step))
 
-                    if tf.round(batch*params.mini_batch_size) % config.tensorboard_freq == 0:
+                    total_dice_epoch += dice
+                    batch += 1
+
+                    if ((batch/params.mini_batch_size) % (config.tensorboard_freq/params.mini_batch_size)) == 0:
                         logger.info("Getting TensorBoard test data...")
 
                         # Generate stats for test dataset
@@ -268,11 +269,9 @@ def train(train_dataset, test_dataset):
 
                         writer.add_summary(test_summary, global_step=sess.run(global_step))
                         logger.info("Average test dice score: %f" % (test_avg))
-                    total_dice_epoch += dice
-                    batch += 1
+            
                 except tf.errors.OutOfRangeError:
                     logger.info("End of epoch %d" % epoch)
-                    logger.info("Average dice of epoch: %d" % total_dice_epoch/params.epoch*params.mini_batch_size)
                     logger.info("Saving model...")
                     saver.save(sess, config.model_file, global_step=global_step)
                     logger.info("Model save complete.")

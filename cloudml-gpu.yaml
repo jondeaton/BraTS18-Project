@@ -1,0 +1,12 @@
+ trainingInput:
+    scaleTier: BASIC_GPU
+    packageUris: [
+      "gs://advance-nuance-139123-mlengine/BraTS_Main/segmentation"
+    ]
+    pythonModule: "setup.py"
+  
+    region: "us-east1"
+    jobDir: "gs://advance-nuance-139123-mlengine/test-job"
+    runtimeVersion: "1.7"
+    pythonVersion: :3.5"
+

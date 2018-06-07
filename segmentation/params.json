@@ -1,7 +1,11 @@
 {
   "model_version": "UNet",
 
+  "summation": true,
   "adam": true,
+  
+  "dropout": true,
+
   "learning_rate": 0.0001,
   "learning_decay_rate": 0.9,
   "epochs": 100,
@@ -11,7 +15,12 @@
   
   "prefetch_buffer_size": 16,
   "shuffle_buffer_size": 16,
-  "augment": true,
+  "augment": false,
   "multi_class": false,
-  "loss": "dice"
+  "loss": "dice",
+
+  "patch": false,
+  "patch_shape": [60,60,60],
+  "patches_per_image": 15
+
 }

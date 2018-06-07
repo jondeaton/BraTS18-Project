@@ -16,7 +16,6 @@ import logging
 import datetime
 
 import tensorflow as tf
-import numpy as np
 
 from preprocessing.partitions import load_tfrecord_datasets
 from preprocessing.patches import get_patches, get_patch_indices
@@ -75,7 +74,7 @@ def _to_prediction(segmentation_softmax, multi_class):
         pred_seg = tf.where(tf.greater(segmentation_softmax, 0.5), ones, zeros)
     return pred_seg
 
-'''def convert_patch_to_original(output, patch_indices, default_pix_value = 0):
+def convert_patch_to_original(output, patch_indices, default_pix_value = 0):
     
     original = tf.zeros(tf.shape(seg_shape))
     
@@ -93,16 +92,18 @@ def _to_prediction(segmentation_softmax, multi_class):
     zeros = tf.zeros(tf.shape(segmentation_softmax))
     ones = tf.ones(tf.shape(segmentation_softmax))
     pred_seg = tf.where(tf.greater(segmentation_softmax, 0.5), ones, zeros)
-    return pred_seg'''
+    return pred_seg
 
 
-def create_data_pipeline(multi_class):
+def create_data_pipeline(multi_class, patch, patch_indices):
     datasets = load_tfrecord_datasets(config.tfrecords_dir)
     for i, dataset in enumerate(datasets):
         if multi_class:
             datasets[i] = datasets[i].map(_make_multi_class)
         else:
             datasets[i] = datasets[i].map(_reshape).map(_to_single_class)
+        if patch:
+            datasets[i] = datasets[i].map(get_patches(mri, seg, patch_indices))
 
         datasets[i] = datasets[i].map(_crop)
 
@@ -186,11 +187,11 @@ def train(train_dataset, test_dataset):
     
     # Create the model's computation graph and cost function
     logger.info("Instantiating model...")
-    output, is_training = UNet.model(input, seg, params.multi_class, params.patch)
+    output, is_training = UNet.model(input, seg, params.multi_class)
     output = tf.identity(output, "output")
 
-    '''if params.patch:
-        output = _to_patch_prediction(output)'''
+    if params.patch:
+        output = _to_patch_prediction(output)
 
     if params.multi_class:
         pred = _to_prediction(output, params.multi_class)
@@ -202,7 +203,7 @@ def train(train_dataset, test_dataset):
     if params.loss == loss.dice:
         cost = - dice
     else:
-        x_entropy = tf.nn.sigmoid_cross_entropy_with_logits(labels=seg, logits=output)
+        x_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=seg, logits=output, dim=1)
         cost = tf.reduce_mean(x_entropy)
 
     # Define the optimization strategy
@@ -211,67 +212,64 @@ def train(train_dataset, test_dataset):
 
     logger.info("Training...")
     init = tf.global_variables_initializer()
-    
     with tf.Session() as sess:
-
-        # Configure Tensorboard training data
-        train_dice = tf.summary.scalar('train_dice', dice)
-        train_dice_histogram = tf.summary.histogram("train_dice_histogram", dice)
-        train_dice_average = tf.summary.scalar('train_dice_average', tf.reduce_mean(dice))
-        train_cost = tf.summary.scalar('train_cost', cost)
-        merged_summary_train = tf.summary.merge([train_dice, train_dice_histogram, train_dice_average, train_cost])
-        
-        # Configure Tensorboard test data
-        test_dice = tf.summary.scalar('test_dice', dice)
-        test_dice_histogram = tf.summary.histogram('test_dice_histogram', dice)
-        test_dice_average = tf.summary.scalar('test_dice_average', tf.reduce_mean(dice))
-        test_cost = tf.summary.scalar('test_cost', cost)
-        merged_summary_test = tf.summary.merge([test_dice, test_dice_histogram, test_dice_average, test_cost])
-
-        writer = tf.summary.FileWriter(logdir=tensorboard_dir)
-        writer.add_graph(sess.graph)  # Add the pretty graph viz
 
         # Initialize graph, data iterators, and model saver
         sess.run(init)
         train_handle = sess.run(train_iterator.string_handle())
         saver = tf.train.Saver()
 
+        # Configure TensorBard
+        tf.summary.scalar('learning_rate', learning_rate)
+        tf.summary.scalar('train_dice', dice)
+        tf.summary.histogram("train_dice", dice)
+        tf.summary.scalar('training_cost', cost)
+        test_dice_summary = tf.summary.histogram('test_dice', dice)
+        test_dice_avg_summary = tf.summary.scalar('test_dice_avg', tf.reduce_mean(dice))
+        merged_summary = tf.summary.merge_all()
+        writer = tf.summary.FileWriter(logdir=tensorboard_dir)
+        writer.add_graph(sess.graph)  # Add the pretty graph viz
+
         saver.save(sess, config.model_file, global_step=global_step)
 
-        # frequency (number of batches) after which we display test error
-        tb_freq = np.round(config.tensorboard_freq/params.mini_batch_size)
-        
         # Training epochs
         for epoch in range(params.epochs):
             sess.run(train_iterator.initializer)
-            
+
+            epoch_cost = 0.0
+
             # Iterate through all batches in the epoch
             batch = 0
-            
             while True:
                 try:
-                    train_summary, _, c, d = sess.run([merged_summary_train, optimizer, cost, dice],
+                    summary, _, c, d = sess.run([merged_summary, optimizer, cost, dice],
                                        feed_dict={is_training: True,
                                                   dataset_handle: train_handle})
 
                     logger.info("Epoch: %d, Batch %d: cost: %f, dice: %f" % (epoch, batch, c, d))
-                    writer.add_summary(train_summary, global_step=sess.run(global_step))
-
+                    writer.add_summary(summary, global_step=sess.run(global_step))
+                    epoch_cost += epoch_cost / params.epochs
                     batch += 1
 
-                    if batch % tb_freq == 0:
-                        logger.info("logging test output to tensorboard")
+                    if batch % config.tensorboard_freq == 0:
+                        logger.info("Logging TensorBoard data...")
+
+                        # Write out stats for training
+                        #s = sess.run(merged_summary, feed_dict={is_training: False,
+                                                                #dataset_handle: train_handle})
+                        #writer.add_summary(s, global_step=sess.run(global_step))
 
                         # Generate stats for test dataset
                         sess.run(test_iterator.initializer)
                         test_handle = sess.run(test_iterator.string_handle())
 
-                        test_summary, test_avg = sess.run([merged_summary_test, test_dice_average],
-                                            feed_dict={is_training: False,
+                        summary_test, test_dice, test_dice_summ, test_dice_avg_summ = \
+                            sess.run([merged_summary, dice, test_dice_summary, test_dice_avg_summary],
+                                     feed_dict={is_training: False,
                                                 dataset_handle: test_handle})
 
-                        writer.add_summary(test_summary, global_step=sess.run(global_step))
-            
+                        writer.add_summary(test_dice_summ, global_step=sess.run(global_step))
+                        writer.add_summary(test_dice_avg_summ, global_step=sess.run(global_step))
                 except tf.errors.OutOfRangeError:
                     logger.info("End of epoch %d" % epoch)
                     logger.info("Saving model...")
@@ -280,6 +278,7 @@ def train(train_dataset, test_dataset):
                     break
 
         logger.info("Training complete.")
+
 
 def main():
     args = parse_args()
@@ -308,10 +307,10 @@ def main():
     logger.debug("TFRecords: %s" % config.tfrecords_dir)
     
     #get patch indices
-    '''if params.patch:
-        patch_indices = get_patch_indices(params.patches_per_image, mri_shape, params.patch_shape, seg)'''
+    if patch:
+        patch_indices = get_patch_indices(params.patches_per_image, mri_shape, params.patch_shape, seg)
 
-    train_dataset, test_dataset, validation_dataset = create_data_pipeline(params.multi_class)
+    
 
     logger.info("Initiating training...")
     logger.debug("TensorBoard Directory: %s" % config.tensorboard_dir)
@@ -319,7 +318,7 @@ def main():
     logger.debug("Learning rate: %s" % params.learning_rate)
     logger.debug("Num epochs: %s" % params.epochs)
     logger.debug("Mini-batch size: %s" % params.mini_batch_size)
-    train(train_dataset, test_dataset)
+    train(train_dataset, test_dataset, patch_indices)
 
     logger.info("Exiting.")
 

@@ -16,6 +16,7 @@ import logging
 import datetime
 
 import tensorflow as tf
+import numpy as np
 
 from preprocessing.partitions import load_tfrecord_datasets
 from preprocessing.patches import get_patches, get_patch_indices
@@ -237,7 +238,7 @@ def train(train_dataset, test_dataset):
 
         saver.save(sess, config.model_file, global_step=global_step)
 
-        #frequency (# batches) after which we display test error
+        # frequency (number of batches) after which we display test error
         tb_freq = np.round(100/params.mini_batch_size)
         
         # Training epochs

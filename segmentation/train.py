@@ -237,6 +237,9 @@ def train(train_dataset, test_dataset):
 
         saver.save(sess, config.model_file, global_step=global_step)
 
+        #frequency (# batches) after which we display test error
+        tb_freq = np.round(100/params.mini_batch_size)
+        
         # Training epochs
         for epoch in range(params.epochs):
             sess.run(train_iterator.initializer)
@@ -255,7 +258,7 @@ def train(train_dataset, test_dataset):
 
                     batch += 1
 
-                    if ((batch/params.mini_batch_size) % (config.tensorboard_freq/params.mini_batch_size)) == 0:
+                    if batch % tb_freq == 0:
                         logger.info("Getting TensorBoard test data...")
 
                         # Generate stats for test dataset

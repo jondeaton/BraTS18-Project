@@ -1,0 +1,6 @@
+model_checkpoint_path: "/afs/cs.stanford.edu/u/jdeaton/dfs/unet/model-46284"
+all_model_checkpoint_paths: "/afs/cs.stanford.edu/u/jdeaton/dfs/unet/model-43036"
+all_model_checkpoint_paths: "/afs/cs.stanford.edu/u/jdeaton/dfs/unet/model-43848"
+all_model_checkpoint_paths: "/afs/cs.stanford.edu/u/jdeaton/dfs/unet/model-44660"
+all_model_checkpoint_paths: "/afs/cs.stanford.edu/u/jdeaton/dfs/unet/model-45472"
+all_model_checkpoint_paths: "/afs/cs.stanford.edu/u/jdeaton/dfs/unet/model-46284"

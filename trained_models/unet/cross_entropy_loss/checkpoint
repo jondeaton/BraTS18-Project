@@ -1,0 +1,6 @@
+model_checkpoint_path: "/afs/cs.stanford.edu/u/jdeaton/dfs/unet-7585"
+all_model_checkpoint_paths: "/afs/cs.stanford.edu/u/jdeaton/dfs/unet-6765"
+all_model_checkpoint_paths: "/afs/cs.stanford.edu/u/jdeaton/dfs/unet-6970"
+all_model_checkpoint_paths: "/afs/cs.stanford.edu/u/jdeaton/dfs/unet-7175"
+all_model_checkpoint_paths: "/afs/cs.stanford.edu/u/jdeaton/dfs/unet-7380"
+all_model_checkpoint_paths: "/afs/cs.stanford.edu/u/jdeaton/dfs/unet-7585"

@@ -253,7 +253,6 @@ def train(train_dataset, test_dataset):
                     logger.info("Epoch: %d, Batch %d: cost: %f, dice: %f" % (epoch, batch, c, d))
                     writer.add_summary(train_summary, global_step=sess.run(global_step))
 
-                    total_dice_epoch += dice
                     batch += 1
 
                     if ((batch/params.mini_batch_size) % (config.tensorboard_freq/params.mini_batch_size)) == 0:

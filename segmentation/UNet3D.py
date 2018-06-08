@@ -118,7 +118,7 @@ def model(input, seg, multi_class, patch):
                                       kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
             output = tf.nn.softmax(final_conv, axis=1, name="softmax")
         
-        elif Params.fully_connected:
+        '''elif Params.fully_connected:
             dense_shape = int(np.prod(level1_up.get_shape()[1:]))
             level1_up_flat = tf.reshape(level1_up, [-1, dense_shape])
 
@@ -127,7 +127,7 @@ def model(input, seg, multi_class, patch):
             output = tf.layers.conv3d(dense,
                                           filters=1, kernel_size=(3, 3, 3), strides=(1, 1, 1), padding='same',
                                           data_format='channels_first', activation=tf.nn.sigmoid, use_bias=True,
-                                          kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
+                                          kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)'''
 
 
         else:

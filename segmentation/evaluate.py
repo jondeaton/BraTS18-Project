@@ -97,8 +97,8 @@ def make_histograms_and_images(get_segmentation, patient_ids, output_dir, name="
         out = get_segmentation(mri)
 
         pred = to_single_class(out, threshold=0.5)
-        truth = to_single_class(patient.seg, threshold=0.5)
-
+        truth = to_single_class(_crop(patient.seg), threshold=0.5)
+        
         dice = dice_coefficient(pred, truth)
         logger.info("Patient: %d, dice coefficient: %s" % (id, dice))
         dice_coefficients.append(dice)

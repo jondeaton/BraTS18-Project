@@ -91,9 +91,12 @@ def make_histograms_and_images(run_model, patient_ids, output_dir, name="unnamed
     brats = BraTS.DataSet(brats_root=config.brats_directory, year=2018)
 
     def get_segmentation(mri):
+        # Formats the patient MRI so that it can be
+        # fed into the model and then formats the output
         _mri = np.expand_dims(mri, axis=0)
         out = run_model(_crop(_mri))
-        return to_single_class(out, threshold=0.5)
+        pred_seg = to_single_class(out, threshold=0.5)
+        return pred_seg
 
     dice_coefficients = list()
     for id in patient_ids:
@@ -101,25 +104,40 @@ def make_histograms_and_images(run_model, patient_ids, output_dir, name="unnamed
 
         pred = get_segmentation(patient.mri)
         truth = to_single_class(_crop(patient.seg), threshold=0.5)
-
         dice = dice_coefficient(pred, truth)
+
         logger.info("Patient: %s, dice coefficient: %s" % (id, dice))
-
         dice_coefficients.append(dice)
-        # make_image(patient, out)
-    return
+        # make_image(patient, pred)
+        brats.drop_cache()
 
-    histogram_file = os.path.join(output_dir, "%s_hist.png" % name)
-    make_dice_histogram(dice_coefficients, histogram_file)
+    mean_dice = np.mean(dice_coefficients)
+    std_dice = np.mean(dice_coefficients)
+    min_dice = np.min(dice_coefficients)
+    max_dice = np.max(dice_coefficients)
+
+    logger.info("%s evaluation complete. Stats:" % name)
+    logger.info("mean dice: %d" % mean_dice)
+    logger.info("std dice: %d" % std_dice)
+    logger.info("min dice: %d" % min_dice)
+    logger.info("max dice: %d" % max_dice)
+
+    # histogram_file = os.path.join(output_dir, "%s_hist.png" % name)
+    # make_dice_histogram(dice_coefficients, histogram_file)
 
 
-def evaluate(get_segmentation, output_dir):
+def evaluate(run_model, output_dir):
 
     train_ids, test_ids, validation_ids = get_all_partition_ids()
 
-    make_histograms_and_images(get_segmentation, train_ids, output_dir)
-    make_histograms_and_images(get_segmentation, test_ids, output_dir)
-    make_histograms_and_images(get_segmentation, validation_ids, output_dir)
+    logger.info("Evaluating test data...")
+    make_histograms_and_images(run_model, test_ids, output_dir)
+
+    logger.info("Evaluating validation data...")
+    make_histograms_and_images(run_model, validation_ids, output_dir)
+
+    logger.info("Evaluating training data...")
+    make_histograms_and_images(run_model, train_ids, output_dir)
 
 
 def restore_and_evaluate(save_path, model_file, output_dir):
@@ -127,18 +145,9 @@ def restore_and_evaluate(save_path, model_file, output_dir):
 
     with tf.Session() as sess:
 
-        # logger.info("Instantiating model...")
-        # input = tf.placeholder(shape=(None,4,240,240,152), dtype=tf.float32)
-        # seg = tf.placeholder(shape=(None,1,240,240,152) + seg_shape, dtype=tf.float32)
-        # output, is_training = UNet.model(input, seg, False, False)
-
         logger.info("Restoring model: %s" % model_file)
         saver = tf.train.import_meta_graph(model_file)
         saver.restore(sess, tf.train.latest_checkpoint(save_path))
-
-        # saver = tf.train.Saver()
-        # saver.restore(sess, model_file)
-
         logger.info("Model restored.")
 
         graph = tf.get_default_graph()
@@ -147,16 +156,12 @@ def restore_and_evaluate(save_path, model_file, output_dir):
         output = graph.get_tensor_by_name("output_1:0")
         is_training = graph.get_tensor_by_name("Placeholder_1:0")
 
-        logger.info("Evaluating mode...")
-
-        # Create a closure that encapsulates this horrible syntax
-        # into a function that can be called to simply get
-        # a prediction for an input
-        def get_segmentation(mri):
+        def run_model(mri):
             feed_dict = {input: mri, is_training: True}
             return sess.run(output, feed_dict=feed_dict)
 
-        evaluate(get_segmentation, output_dir)
+        logger.info("Evaluating mode...")
+        evaluate(run_model, output_dir)
 
 
 def main():

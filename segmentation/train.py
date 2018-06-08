@@ -210,11 +210,8 @@ def train(train_dataset, test_dataset):
     
     with tf.control_dependencies(update_ops):
         # Ensures that we execute the update_ops before performing the train_step
-        train_step = tf.train.GradientDescentOptimizer(0.01).minimize(loss)
-
-    # Define the optimization strategy
-    global_step = tf.Variable(0, name='global_step', trainable=False)
-    optimizer, learning_rate = _get_optimizer(cost, global_step)
+        global_step = tf.Variable(0, name='global_step', trainable=False)
+        optimizer, learning_rate = _get_optimizer(cost, global_step)
 
     logger.info("Training...")
     init = tf.global_variables_initializer()

@@ -98,9 +98,15 @@ def make_histograms_and_images(get_segmentation, patient_ids, output_dir, name="
 
         pred = to_single_class(out, threshold=0.5)
         truth = to_single_class(_crop(patient.seg), threshold=0.5)
-        
+
         dice = dice_coefficient(pred, truth)
-        logger.info("Patient: %d, dice coefficient: %s" % (id, dice))
+        logger.info("Patient: %s, dice coefficient: %s" % (id, dice))
+
+        logger.info("Num tumor pixels: %d" % np.sum(truth))
+        logger.info("Num pred pixels: %d" % np.sum(pred))
+        logger.info("mean: %s" % np.mean(out))
+        logger.info("std: %s" % np.std(out))
+
         dice_coefficients.append(dice)
         # make_image(patient, out)
     return

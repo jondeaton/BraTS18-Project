@@ -82,7 +82,7 @@ def make_image(patient, out):
         # todo: fix
 
 
-def make_histograms_and_images(sess, input, output, patient_ids, output_dir, name="unnamed"):
+def make_histograms_and_images(get_segmentation, patient_ids, output_dir, name="unnamed"):
 
     brats = BraTS.DataSet(brats_root=config.brats_directory, year=2018)
 
@@ -92,32 +92,30 @@ def make_histograms_and_images(sess, input, output, patient_ids, output_dir, nam
         patient = brats.train.patient(id)
         mri = np.expand_dims(patient.mri, axis=0)
         mri = _crop(mri)
-        out = sess.run(output, feed_dict={input: mri})
 
-        print("ran the model!!!!!!!!!!!!!!!")
+        logger.info("")
+        out = get_segmentation(mri)
 
-        pred = to_single_class(out)
-        truth = to_single_class(patient.seg)
+        pred = to_single_class(out, threshold=0.5)
+        truth = to_single_class(patient.seg, threshold=0.5)
 
         dice = dice_coefficient(pred, truth)
         logger.info("Patient: %d, dice coefficient: %s" % (id, dice))
         dice_coefficients.append(dice)
-        make_image(patient, out)
+        # make_image(patient, out)
+    return
 
     histogram_file = os.path.join(output_dir, "%s_hist.png" % name)
     make_dice_histogram(dice_coefficients, histogram_file)
 
 
-def evaluate(sess, input, output, output_dir):
-    assert isinstance(sess, tf.Session)
-    assert isinstance(input, tf.Tensor)
-    assert isinstance(output, tf.Tensor)
+def evaluate(get_segmentation, output_dir):
 
     train_ids, test_ids, validation_ids = get_all_partition_ids()
 
-    make_histograms_and_images(sess, input, output, train_ids, output_dir)
-    make_histograms_and_images(sess, input, output, test_ids, output_dir)
-    make_histograms_and_images(sess, input, output, validation_ids, output_dir)
+    make_histograms_and_images(get_segmentation, train_ids, output_dir)
+    make_histograms_and_images(get_segmentation, test_ids, output_dir)
+    make_histograms_and_images(get_segmentation, validation_ids, output_dir)
 
 from BraTS.modalities import mri_shape, seg_shape
 
@@ -144,9 +142,18 @@ def restore_and_evaluate(save_path, model_file, output_dir):
 
         input = graph.get_tensor_by_name("input:0")
         output = graph.get_tensor_by_name("output_1:0")
+        is_training = graph.get_tensor_by_name("Placeholder_1:0")
 
         logger.info("Evaluating mode...")
-        evaluate(sess, input, output, output_dir)
+
+        # Create a closure that encapsulates this horrible syntax
+        # into a function that can be called to simply get
+        # a prediction for an input
+        def get_segmentation(mri):
+            feed_dict = {input: mri, is_training: False}
+            return sess.run(output, feed_dict=feed_dict)
+
+        evaluate(get_segmentation, output_dir)
 
 
 def main():
@@ -209,6 +216,12 @@ def parse_args():
         raise ValueError('Invalid log level: %s' % args.log_level)
 
     log_formatter = logging.Formatter('[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+
+    # For the console
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(log_formatter)
+    logger.addHandler(console_handler)
+
     logger.setLevel(log_level)
 
     return args

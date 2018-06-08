@@ -27,7 +27,7 @@ def up_block(input, shortcut, is_training, num_filters, name="up_level", final_b
         if Params.summation:
             sum_block = deconv+shortcut
             conv1 = conv_block(sum_block, is_training, num_filters=num_filters, name='conv1')
-        else if Params.concatenation:
+        elif Params.concatenation:
             concat = tf.concat(values=[deconv, shortcut], axis=1, name="concat")
             conv1 = conv_block(concat, is_training, num_filters=num_filters, name='conv1')
         else: 

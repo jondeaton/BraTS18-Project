@@ -39,8 +39,9 @@ def dice_coefficient(pred, truth, smooth=0.02):
 
 def to_single_class(seg, threshold):
     _seg = np.copy(seg)
-    _seg[_seg > 0] = 1
-    return _seg
+    _seg[seg >= threshold] = 1
+    _seg[seg < threshold] = 0
+    return _seg.astype(int)
 
 
 def make_dice_histogram(dice_coefficients, filename):
@@ -96,10 +97,10 @@ def make_histograms_and_images(get_segmentation, patient_ids, output_dir, name="
         logger.info("")
         out = get_segmentation(mri)
 
-        pred = to_single_class(out, threshold=0.5)
+        pred = to_single_class(out, threshold=1)
         truth = to_single_class(_crop(patient.seg), threshold=0.5)
 
-        dice = dice_coefficient(pred, truth)
+        dice = dice_coefficient(out, truth)
         logger.info("Patient: %s, dice coefficient: %s" % (id, dice))
 
         logger.info("Num tumor pixels: %d" % np.sum(truth))

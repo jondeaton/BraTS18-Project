@@ -24,9 +24,8 @@ from segmentation.config import Configuration
 from preprocessing.partitions import get_all_partition_ids
 import random
 
-from BraTS.modalities import mri_shape, seg_shape
-
 import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize
 
 logger = logging.getLogger()
 
@@ -56,6 +55,13 @@ def _crop(image):
 
 
 def get_tumor_range(patient):
+    """
+    Finds where the tumor exists in a patient's images
+
+    :param patient: Patient object containing the MRI/segmentation
+    :return: Returns a list of indices in the last axis
+    of the patient MRI/Segmentation that contain the tumor
+    """
     assert isinstance(patient, Patient)
     tumor_range = list()
     for i in range(patient.seg.shape[3]):
@@ -64,31 +70,74 @@ def get_tumor_range(patient):
     return tumor_range
 
 
-def make_image(patient, out):
+def make_image(patient, segmentation, coronal_index, dice, output_dir):
+    _img = patient.flair[:, coronal_index, :].T[::-1, :]
+    _seg = to_single_class(patient.seg, threshold=0.5)[:, coronal_index, :].T[::-1, :]
+
+    vmax = 1
+    vmin = 0
+    cmap = plt.cm.RdYlBu
+
+    colors = Normalize(vmin, vmax, clip=True)(_seg)
+    colors = cmap(colors)
+    colors[..., -1] = _seg
+
+    fig, axarr = plt.subplots(1, 2)
+    axarr[0].set_title("Subject: %s" % patient.id)
+    axarr[0].imshow(_img, cmap='gray')
+    axarr[0].imshow(colors)
+    axarr[0].set_axis_off()
+
+    colors_p = Normalize(vmin, vmax, clip=True)(segmentation)
+    colors_p = cmap(colors)
+    colors_p[..., -1] = segmentation
+
+    axarr[1].set_title("UNet Prediction, dice: %f" % dice)
+    axarr[1].imshow(_img, cmap='gray')
+    axarr[1].imshow(colors_p)
+    axarr[1].set_axis_off()
+
+    out_file = os.path.join(output_dir, "%s_%d.png" % (patient.id, coronal_index))
+    fig.savefig(out_file)
+
+
+def make_images(patient, predicted_seg, output_directory, dice, num_images=5):
     assert isinstance(patient, Patient)
-    assert isinstance(out, np.ndarray)
+    assert isinstance(predicted_seg, np.ndarray)
+    assert isinstance(output_directory, str)
+
     tumor_range = get_tumor_range(patient)
 
-    random.shuffle(tumor_range)
+    # Select some slices randomly weighted based on how much tumor is present
+    weights = [np.sum(patient.seg[:, :, i]) for i in tumor_range]
+    coronal_slices = sorted(random.choices(tumor_range, weights=weights, k=num_images))
 
-    for slice_index in tumor_range[10:]:
-        pass
-        # coronal_slice = patient.t1[:,:,0]
-        # fig, axarr = plt.subplots(1, 2)
-        #
-        # axarr[0].imshow(patient.)
-        # axarr[0].set_title("Original")
-        #
-        #
-        # axarr[1].imshow(yTilde[0:N].reshape((40, 40)))
-        # axarr[1].set_title("Original Noisy")
-        # fig.savefig("originals_%.2f.png" % epsilon)
-        # todo: fix
+    for coronal_index in coronal_slices:
+        make_image(patient, predicted_seg, coronal_index, dice, output_directory)
+
+
+def log_metrics(dice_coefficients, name):
+    mean_dice = np.mean(dice_coefficients)
+    std_dice = np.std(dice_coefficients)
+    min_dice = np.min(dice_coefficients)
+    max_dice = np.max(dice_coefficients)
+
+    logger.info("%s evaluation complete. Stats:" % name)
+    logger.info("mean dice: %s" % mean_dice)
+    logger.info("std dice: %s" % std_dice)
+    logger.info("min dice: %s" % min_dice)
+    logger.info("max dice: %s" % max_dice)
 
 
 def make_histograms_and_images(run_model, patient_ids, output_dir, name="unnamed"):
 
     brats = BraTS.DataSet(brats_root=config.brats_directory, year=2018)
+
+    out_dir = os.path.join(output_dir, name)
+    try:
+        os.mkdir(out_dir)
+    except:
+        pass
 
     def get_segmentation(mri):
         # Formats the patient MRI so that it can be
@@ -108,19 +157,10 @@ def make_histograms_and_images(run_model, patient_ids, output_dir, name="unnamed
 
         logger.info("Patient: %s, dice coefficient: %s" % (id, dice))
         dice_coefficients.append(dice)
-        # make_image(patient, pred)
+        make_images(patient, pred, out_dir, dice)
         brats.drop_cache()
 
-    mean_dice = np.mean(dice_coefficients)
-    std_dice = np.std(dice_coefficients)
-    min_dice = np.min(dice_coefficients)
-    max_dice = np.max(dice_coefficients)
-
-    logger.info("%s evaluation complete. Stats:" % name)
-    logger.info("mean dice: %s" % mean_dice)
-    logger.info("std dice: %s" % std_dice)
-    logger.info("min dice: %s" % min_dice)
-    logger.info("max dice: %s" % max_dice)
+    log_metrics(dice_coefficients, name)
 
     # histogram_file = os.path.join(output_dir, "%s_hist.png" % name)
     # make_dice_histogram(dice_coefficients, histogram_file)

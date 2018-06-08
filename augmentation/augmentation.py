@@ -50,8 +50,8 @@ def augment_training_set(train_dataset):
 
     with tf.variable_scope("augmentation"):
 
-        noisy = train_dataset.map(_add_noise)
-        train_dataset = train_dataset.concatenate(noisy)
+        # noisy = train_dataset.map(_add_noise)
+        # train_dataset = train_dataset.concatenate(noisy)
 
         # todo: fix blurring augmentation
         # blurred = train_dataset.map(blur)

@@ -241,7 +241,7 @@ def train(train_dataset, test_dataset):
         saver.save(sess, config.model_file, global_step=global_step)
 
         # frequency (number of batches) after which we display test error
-        tb_freq = 3 #np.round(config.tensorboard_freq/params.mini_batch_size)
+        tb_freq = np.round(config.tensorboard_freq/params.mini_batch_size)
         
         # Training epochs
         for epoch in range(params.epochs):
@@ -276,11 +276,11 @@ def train(train_dataset, test_dataset):
                             test_handle = sess.run(test_iterator.string_handle())
                             sess.run(test_iterator.initializer)
 
-                            test_summary = sess.run([merged_summary_test],
+                            test_summary, t_dice = sess.run([merged_summary_test, test_dice],
                                                 feed_dict={is_training: False,
                                                     dataset_handle: test_handle})
 
-                            logger.info(" test_dice: %f" % (dice))
+                            logger.info(" test_dice: %f" % (t_dice))
 
                             writer.add_summary(test_summary, global_step=sess.run(global_step))
 

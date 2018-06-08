@@ -214,14 +214,14 @@ def train(train_dataset, test_dataset):
     
     with tf.Session() as sess:
 
-        # Configure Tensorboard training data
+        # Configure TensorBoard training data
         train_dice = tf.summary.scalar('train_dice', dice)
         train_dice_histogram = tf.summary.histogram("train_dice_histogram", dice)
         train_dice_average = tf.summary.scalar('train_dice_average', tf.reduce_mean(dice))
         train_cost = tf.summary.scalar('train_cost', cost)
         merged_summary_train = tf.summary.merge([train_dice, train_dice_histogram, train_dice_average, train_cost])
-        
-        # Configure Tensorboard test data
+
+        # Configure TensorBoard test data
         test_dice = tf.summary.scalar('test_dice', dice)
         test_dice_histogram = tf.summary.histogram('test_dice_histogram', dice)
         test_dice_average = tf.summary.scalar('test_dice_average', tf.reduce_mean(dice))
@@ -235,7 +235,6 @@ def train(train_dataset, test_dataset):
         sess.run(init)
         train_handle = sess.run(train_iterator.string_handle())
         saver = tf.train.Saver(save_relative_paths=True)
-
         saver.save(sess, config.model_file, global_step=global_step)
 
         # frequency (number of batches) after which we display test error
@@ -244,10 +243,10 @@ def train(train_dataset, test_dataset):
         # Training epochs
         for epoch in range(params.epochs):
             sess.run(train_iterator.initializer)
-            
+
             # Iterate through all batches in the epoch
             batch = 0
-            
+
             while True:
                 try:
                     train_summary, _, c, d = sess.run([merged_summary_train, optimizer, cost, dice],
@@ -258,20 +257,17 @@ def train(train_dataset, test_dataset):
                     writer.add_summary(train_summary, global_step=sess.run(global_step))
 
                     batch += 1
-
                     if batch % tb_freq == 0:
                         logger.info("logging test output to TensorBoard")
-
                         # Generate stats for test dataset
                         sess.run(test_iterator.initializer)
                         test_handle = sess.run(test_iterator.string_handle())
 
                         test_summary, test_avg = sess.run([merged_summary_test, test_dice_average],
-                                            feed_dict={is_training: False,
-                                                dataset_handle: test_handle})
-
+                                                          feed_dict={is_training: False,
+                                                                     dataset_handle: test_handle})
                         writer.add_summary(test_summary, global_step=sess.run(global_step))
-            
+
                 except tf.errors.OutOfRangeError:
                     logger.info("End of epoch %d" % epoch)
                     logger.info("Saving model...")

@@ -22,10 +22,11 @@ import BraTS
 from BraTS.Patient import Patient
 from segmentation.config import Configuration
 from preprocessing.partitions import get_all_partition_ids
-import matplotlib.pyplot as plt
 import random
 
-import segmentation.UNet3D as UNet
+from BraTS.modalities import mri_shape, seg_shape
+
+import matplotlib.pyplot as plt
 
 logger = logging.getLogger()
 
@@ -48,15 +49,17 @@ def make_dice_histogram(dice_coefficients, filename):
     # todo: make histogram and save it...
     pass
 
+
 def _crop(image):
     image = image[..., 3:]
     return image
+
 
 def get_tumor_range(patient):
     assert isinstance(patient, Patient)
     tumor_range = list()
     for i in range(patient.seg.shape[3]):
-        if np.sum(patient.seg[:,:,i]) != 0:
+        if np.sum(patient.seg[:, :, i]) != 0:
             tumor_range.append(i)
     return tumor_range
 
@@ -92,21 +95,15 @@ def make_histograms_and_images(get_segmentation, patient_ids, output_dir, name="
     for id in patient_ids:
         patient = brats.train.patient(id)
         mri = np.expand_dims(patient.mri, axis=0)
-        mri = _crop(mri)
 
-        logger.info("")
-        out = get_segmentation(mri)
+
+        out = get_segmentation(_crop(mri))
 
         pred = to_single_class(out, threshold=1)
         truth = to_single_class(_crop(patient.seg), threshold=0.5)
 
         dice = dice_coefficient(out, truth)
         logger.info("Patient: %s, dice coefficient: %s" % (id, dice))
-
-        logger.info("Num tumor pixels: %d" % np.sum(truth))
-        logger.info("Num pred pixels: %d" % np.sum(pred))
-        logger.info("mean: %s" % np.mean(out))
-        logger.info("std: %s" % np.std(out))
 
         dice_coefficients.append(dice)
         # make_image(patient, out)
@@ -124,7 +121,6 @@ def evaluate(get_segmentation, output_dir):
     make_histograms_and_images(get_segmentation, test_ids, output_dir)
     make_histograms_and_images(get_segmentation, validation_ids, output_dir)
 
-from BraTS.modalities import mri_shape, seg_shape
 
 def restore_and_evaluate(save_path, model_file, output_dir):
     tf.reset_default_graph()
@@ -157,7 +153,7 @@ def restore_and_evaluate(save_path, model_file, output_dir):
         # into a function that can be called to simply get
         # a prediction for an input
         def get_segmentation(mri):
-            feed_dict = {input: mri, is_training: False}
+            feed_dict = {input: mri, is_training: True}
             return sess.run(output, feed_dict=feed_dict)
 
         evaluate(get_segmentation, output_dir)

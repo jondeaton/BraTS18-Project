@@ -112,15 +112,15 @@ def make_histograms_and_images(run_model, patient_ids, output_dir, name="unnamed
         brats.drop_cache()
 
     mean_dice = np.mean(dice_coefficients)
-    std_dice = np.mean(dice_coefficients)
+    std_dice = np.std(dice_coefficients)
     min_dice = np.min(dice_coefficients)
     max_dice = np.max(dice_coefficients)
 
     logger.info("%s evaluation complete. Stats:" % name)
-    logger.info("mean dice: %d" % mean_dice)
-    logger.info("std dice: %d" % std_dice)
-    logger.info("min dice: %d" % min_dice)
-    logger.info("max dice: %d" % max_dice)
+    logger.info("mean dice: %s" % mean_dice)
+    logger.info("std dice: %s" % std_dice)
+    logger.info("min dice: %s" % min_dice)
+    logger.info("max dice: %s" % max_dice)
 
     # histogram_file = os.path.join(output_dir, "%s_hist.png" % name)
     # make_dice_histogram(dice_coefficients, histogram_file)

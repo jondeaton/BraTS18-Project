@@ -241,7 +241,7 @@ def train(train_dataset, test_dataset):
         saver.save(sess, config.model_file, global_step=global_step)
 
         # frequency (number of batches) after which we display test error
-        tb_freq = 2 #np.round(config.tensorboard_freq/params.mini_batch_size)
+        tb_freq = np.round(config.tensorboard_freq/params.mini_batch_size)
         
         # Training epochs
         for epoch in range(params.epochs):
@@ -265,25 +265,28 @@ def train(train_dataset, test_dataset):
                         
                         counter = 0
                         
+                        # Generate stats for test dataset
+                        logger.info("logging test output to tensorboard")
+
+                        test_handle = sess.run(test_iterator.string_handle())
+                        sess.run(test_iterator.initializer)
+
                         while True:
-                            
-                            if counter >= 20:
+                            try:
+                                if counter >= 20:
+                                    break
+
+                                test_summary = sess.run(merged_summary_test,
+                                                    feed_dict={is_training: False,
+                                                        dataset_handle: test_handle})
+
+                                writer.add_summary(test_summary, global_step=sess.run(global_step))
+
+                                counter +=1
+                            except tf.errors.OutOfRangeError:
+                                logger.info("End of epoch %d" % epoch)
                                 break
-
-                            # Generate stats for test dataset
-                            logger.info("logging test output to tensorboard")
-
-                            test_handle = sess.run(test_iterator.string_handle())
-                            sess.run(test_iterator.initializer)
-
-                            test_summary = sess.run(merged_summary_test,
-                                                feed_dict={is_training: False,
-                                                    dataset_handle: test_handle})
-
-                            writer.add_summary(test_summary, global_step=sess.run(global_step))
-
-                            counter +=1
-            
+                
                 except tf.errors.OutOfRangeError:
                     logger.info("End of epoch %d" % epoch)
                     logger.info("Saving model...")

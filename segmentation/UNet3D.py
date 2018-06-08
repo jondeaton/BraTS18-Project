@@ -25,13 +25,17 @@ def up_block(input, shortcut, is_training, num_filters, name="up_level", final_b
                                             filters=num_filters, kernel_size=(3,3,3), strides=(2,2,2),
                                             padding='same', data_format='channels_first', name="deconv")
         if Params.summation:
-            concat = deconv+shortcut
-        else:
+            sum_block = deconv+shortcut
+            conv1 = conv_block(sum_block, is_training, num_filters=num_filters, name='conv1')
+        else if Params.concatenation:
             concat = tf.concat(values=[deconv, shortcut], axis=1, name="concat")
-        conv1 = conv_block(concat, is_training, num_filters=num_filters, name='conv1')
+            conv1 = conv_block(concat, is_training, num_filters=num_filters, name='conv1')
+        else: 
+            conv1 = conv_block(deconv, is_training, num_filters=num_filters, name='conv1')
+        
         conv2 = conv_block(conv1, is_training, num_filters=num_filters, name='conv2')
 
-        if final_block and Params.summation:
+        if final_block and not Params.concatenation:
             conv3 = conv_block(conv2, is_training, num_filters=4, name='conv3')
             return conv3
         else:
@@ -85,7 +89,7 @@ def model(input, seg, multi_class, patch):
 
     with tf.variable_scope("level4"):
         conv1 = conv_block(level3, is_training, num_filters=64, name="conv1")
-        conv2 = conv_block(conv1, is_training, num_filters=64, name="conv2") #can make this 64 filters
+        conv2 = conv_block(conv1, is_training, num_filters=64, name="conv2")
 
     with tf.variable_scope("up"):
         level3_up = up_block(conv2, l3_conv, is_training, num_filters=32, name="level3")
@@ -106,12 +110,25 @@ def model(input, seg, multi_class, patch):
                                       data_format='channels_first', activation=None, use_bias=True,
                                       kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
             output = tf.nn.softmax(final_conv, axis=1, name="softmax")
+        
         elif patch:
             final_conv = tf.layers.conv3d(level1_up,
                                       filters=Params.patches_per_image, kernel_size=(1,1,1), strides=(1,1,1), padding='same',
                                       data_format='channels_first', activation=None, use_bias=True,
                                       kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
             output = tf.nn.softmax(final_conv, axis=1, name="softmax")
+        
+        elif Params.fully_connected:
+            dense_shape = int(np.prod(level1_up.get_shape()[1:]))
+            level1_up_flat = tf.reshape(level1_up, [-1, dense_shape])
+
+            dense = tf.layers.dense(inputs=level1_up_flat, units=, activation=tf.nn.relu)
+            
+            output = tf.layers.conv3d(dense,
+                                          filters=1, kernel_size=(3, 3, 3), strides=(1, 1, 1), padding='same',
+                                          data_format='channels_first', activation=tf.nn.sigmoid, use_bias=True,
+                                          kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
+
 
         else:
             output = tf.layers.conv3d(level1_up,

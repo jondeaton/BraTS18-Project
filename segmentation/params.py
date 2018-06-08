@@ -117,6 +117,14 @@ class Params():
     def summation(self):
         return self.dict["summation"]
 
+    @property
+    def concatenation(self):
+        return self.dict["concatenation"]
+
+    @property
+    def fully_connected(self):
+        return self.dict["fully_connected"]
+
 def save_dict_to_json(d, json_path):
     """
     Saves dict of floats in json file

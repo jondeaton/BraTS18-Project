@@ -119,7 +119,7 @@ def create_data_pipeline(multi_class):
 
     # Shuffle/batch test dataset
     test_dataset = test_dataset.shuffle(params.shuffle_buffer_size)
-    test_dataset = test_dataset.batch(params.mini_batch_size)
+    test_dataset = test_dataset.batch(params.test_batch_size)
 
     return train_dataset, test_dataset, validation_dataset
 
@@ -205,6 +205,13 @@ def train(train_dataset, test_dataset):
         x_entropy = tf.nn.sigmoid_cross_entropy_with_logits(labels=seg, logits=output)
         cost = tf.reduce_mean(x_entropy)
 
+    # So that batch norm mean/variance updates each train step
+    update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+    
+    with tf.control_dependencies(update_ops):
+        # Ensures that we execute the update_ops before performing the train_step
+        train_step = tf.train.GradientDescentOptimizer(0.01).minimize(loss)
+
     # Define the optimization strategy
     global_step = tf.Variable(0, name='global_step', trainable=False)
     optimizer, learning_rate = _get_optimizer(cost, global_step)
@@ -217,16 +224,16 @@ def train(train_dataset, test_dataset):
         # Configure Tensorboard training data
         train_dice = tf.summary.scalar('train_dice', dice)
         train_dice_histogram = tf.summary.histogram("train_dice_histogram", dice)
-        train_dice_average = tf.summary.scalar('train_dice_average', tf.reduce_mean(dice))
         train_cost = tf.summary.scalar('train_cost', cost)
-        merged_summary_train = tf.summary.merge([train_dice, train_dice_histogram, train_dice_average, train_cost])
+        merged_summary_train = tf.summary.merge([train_dice, train_cost, train_dice_histogram])
         
         # Configure Tensorboard test data
         test_dice = tf.summary.scalar('test_dice', dice)
         test_dice_histogram = tf.summary.histogram('test_dice_histogram', dice)
-        test_dice_average = tf.summary.scalar('test_dice_average', tf.reduce_mean(dice))
         test_cost = tf.summary.scalar('test_cost', cost)
-        merged_summary_test = tf.summary.merge([test_dice, test_dice_histogram, test_dice_average, test_cost])
+        merged_summary_test = tf.summary.merge([test_dice, test_cost, test_dice_histogram])
+
+        test_dice_average = tf.summary.scalar('test_dice_average', tf.reduce_mean(dice))
 
         writer = tf.summary.FileWriter(logdir=tensorboard_dir)
         writer.add_graph(sess.graph)  # Add the pretty graph viz
@@ -260,15 +267,17 @@ def train(train_dataset, test_dataset):
                     batch += 1
 
                     if batch % tb_freq == 0:
+                        # Generate stats for test dataset
                         logger.info("logging test output to tensorboard")
 
-                        # Generate stats for test dataset
-                        sess.run(test_iterator.initializer)
                         test_handle = sess.run(test_iterator.string_handle())
+                        sess.run(test_iterator.initializer)
 
                         test_summary, test_avg = sess.run([merged_summary_test, test_dice_average],
                                             feed_dict={is_training: False,
                                                 dataset_handle: test_handle})
+
+                        logger.info(" test_dice_average: %f" % (test_avg))
 
                         writer.add_summary(test_summary, global_step=sess.run(global_step))
             

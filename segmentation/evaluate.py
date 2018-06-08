@@ -86,23 +86,23 @@ def make_image(patient, out):
         # todo: fix
 
 
-def make_histograms_and_images(get_segmentation, patient_ids, output_dir, name="unnamed"):
+def make_histograms_and_images(run_model, patient_ids, output_dir, name="unnamed"):
 
     brats = BraTS.DataSet(brats_root=config.brats_directory, year=2018)
 
-    dice_coefficients = list()
+    def get_segmentation(mri):
+        _mri = np.expand_dims(mri, axis=0)
+        out = run_model(_crop(_mri))
+        return to_single_class(out, threshold=0.5)
 
+    dice_coefficients = list()
     for id in patient_ids:
         patient = brats.train.patient(id)
-        mri = np.expand_dims(patient.mri, axis=0)
 
-
-        out = get_segmentation(_crop(mri))
-
-        pred = to_single_class(out, threshold=1)
+        pred = get_segmentation(patient.mri)
         truth = to_single_class(_crop(patient.seg), threshold=0.5)
 
-        dice = dice_coefficient(out, truth)
+        dice = dice_coefficient(pred, truth)
         logger.info("Patient: %s, dice coefficient: %s" % (id, dice))
 
         dice_coefficients.append(dice)

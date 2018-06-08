@@ -92,7 +92,7 @@ def model(input, seg, multi_class, patch):
         level2_up = up_block(level3_up, l2_conv, is_training, num_filters=16, name="level2")
         level1_up = up_block(level2_up, l1_conv, is_training, num_filters=8, name="level1", final_block = True)
 
-   
+
     with tf.variable_scope("output"):
         kernel_initializer = tf.truncated_normal_initializer(stddev=5e-2, dtype=tf.float32)
         bias_initializer = tf.zeros_initializer(dtype=tf.float32)
@@ -102,15 +102,15 @@ def model(input, seg, multi_class, patch):
 
         if multi_class:
             final_conv = tf.layers.conv3d(level1_up,
-                                      filters=4, kernel_size=(1,1,1), strides=(1,1,1), padding='same',
-                                      data_format='channels_first', activation=None, use_bias=True,
-                                      kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
+                                          filters=4, kernel_size=(1,1,1), strides=(1,1,1), padding='same',
+                                          data_format='channels_first', activation=None, use_bias=True,
+                                          kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
             output = tf.nn.softmax(final_conv, axis=1, name="softmax")
         elif patch:
             final_conv = tf.layers.conv3d(level1_up,
-                                      filters=Params.patches_per_image, kernel_size=(1,1,1), strides=(1,1,1), padding='same',
-                                      data_format='channels_first', activation=None, use_bias=True,
-                                      kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
+                                          filters=Params.patches_per_image, kernel_size=(1,1,1), strides=(1,1,1), padding='same',
+                                          data_format='channels_first', activation=None, use_bias=True,
+                                          kernel_initializer=kernel_initializer, bias_initializer=bias_initializer)
             output = tf.nn.softmax(final_conv, axis=1, name="softmax")
 
         else:

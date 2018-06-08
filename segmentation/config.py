@@ -14,7 +14,7 @@ default_config_file = os.path.join(dir_name, "config_local.ini")
 
 class Configuration(object):
 
-    def __init__(self, config_file):
+    def __init__(self, config_file=default_config_file):
 
         assert isinstance(config_file, str)
         # Setup the filesystem configuration

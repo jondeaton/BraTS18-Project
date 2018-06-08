@@ -234,7 +234,7 @@ def train(train_dataset, test_dataset):
         # Initialize graph, data iterators, and model saver
         sess.run(init)
         train_handle = sess.run(train_iterator.string_handle())
-        saver = tf.train.Saver()
+        saver = tf.train.Saver(save_relative_paths=True)
 
         saver.save(sess, config.model_file, global_step=global_step)
 
@@ -260,7 +260,7 @@ def train(train_dataset, test_dataset):
                     batch += 1
 
                     if batch % tb_freq == 0:
-                        logger.info("logging test output to tensorboard")
+                        logger.info("logging test output to TensorBoard")
 
                         # Generate stats for test dataset
                         sess.run(test_iterator.initializer)

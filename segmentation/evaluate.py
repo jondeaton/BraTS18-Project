@@ -10,6 +10,7 @@ Evaluates a BraTS segmentation model.
 
 """
 
+import os
 import sys
 import argparse
 import logging
@@ -23,6 +24,8 @@ from segmentation.config import Configuration
 from preprocessing.partitions import get_all_partition_ids
 import matplotlib.pyplot as plt
 import random
+
+import segmentation.UNet3D as UNet
 
 logger = logging.getLogger()
 
@@ -43,6 +46,10 @@ def to_single_class(seg, threshold):
 def make_dice_histogram(dice_coefficients, filename):
     # todo: make histogram and save it...
     pass
+
+def _crop(image):
+    image = image[..., 3:]
+    return image
 
 def get_tumor_range(patient):
     assert isinstance(patient, Patient)
@@ -75,15 +82,20 @@ def make_image(patient, out):
         # todo: fix
 
 
-def make_histograms_and_images(sess, input, output, patient_ids):
+def make_histograms_and_images(sess, input, output, patient_ids, output_dir, name="unnamed"):
 
-    brats = BraTS.DataSet(data_set_dir=config.brats_directory, year=2018)
+    brats = BraTS.DataSet(brats_root=config.brats_directory, year=2018)
 
     dice_coefficients = list()
 
     for id in patient_ids:
         patient = brats.train.patient(id)
-        out = sess.run(output, feed_dict={input: patient.mri})
+        mri = np.expand_dims(patient.mri, axis=0)
+        mri = _crop(mri)
+        out = sess.run(output, feed_dict={input: mri})
+
+        print("ran the model!!!!!!!!!!!!!!!")
+
         pred = to_single_class(out)
         truth = to_single_class(patient.seg)
 
@@ -92,49 +104,75 @@ def make_histograms_and_images(sess, input, output, patient_ids):
         dice_coefficients.append(dice)
         make_image(patient, out)
 
-    make_dice_histogram(dice_coefficients, "dice_hist.png")
+    histogram_file = os.path.join(output_dir, "%s_hist.png" % name)
+    make_dice_histogram(dice_coefficients, histogram_file)
 
 
-
-
-def evaluate(sess, input, output):
+def evaluate(sess, input, output, output_dir):
     assert isinstance(sess, tf.Session)
     assert isinstance(input, tf.Tensor)
     assert isinstance(output, tf.Tensor)
 
     train_ids, test_ids, validation_ids = get_all_partition_ids()
 
-    make_histograms_and_images(sess, input, output, train_ids)
-    make_histograms_and_images(sess, input, output, test_ids)
-    make_histograms_and_images(sess, input, output, validation_ids)
+    make_histograms_and_images(sess, input, output, train_ids, output_dir)
+    make_histograms_and_images(sess, input, output, test_ids, output_dir)
+    make_histograms_and_images(sess, input, output, validation_ids, output_dir)
 
+from BraTS.modalities import mri_shape, seg_shape
 
-def restore_and_evaluate(model_file):
+def restore_and_evaluate(save_path, model_file, output_dir):
     tf.reset_default_graph()
 
     with tf.Session() as sess:
 
+        # logger.info("Instantiating model...")
+        # input = tf.placeholder(shape=(None,4,240,240,152), dtype=tf.float32)
+        # seg = tf.placeholder(shape=(None,1,240,240,152) + seg_shape, dtype=tf.float32)
+        # output, is_training = UNet.model(input, seg, False, False)
+
         logger.info("Restoring model: %s" % model_file)
         saver = tf.train.import_meta_graph(model_file)
-        saver.restore(sess, tf.train.latest_checkpoint('./'))
+        saver.restore(sess, tf.train.latest_checkpoint(save_path))
+
+        # saver = tf.train.Saver()
+        # saver.restore(sess, model_file)
+
         logger.info("Model restored.")
 
         graph = tf.get_default_graph()
 
-        input = graph.get_tensor_by_name("input")
-        output = graph.get_tensor_by_name("output")
+        input = graph.get_tensor_by_name("input:0")
+        output = graph.get_tensor_by_name("output_1:0")
 
         logger.info("Evaluating mode...")
-        evaluate(sess, input, output)
+        evaluate(sess, input, output, output_dir)
 
 
 def main():
     args = parse_args()
 
     global config
-    config = Configuration(args.config)
+    if args.config is not None:
+        config = Configuration(args.config)
+    else:
+        config = Configuration()
 
-    restore_and_evaluate(args.model_file)
+    save_path = os.path.expanduser(args.save_path)
+    if not os.path.isdir(save_path):
+        logger.error("No such save-path directory: %s" % save_path)
+        return
+
+    model_file = os.path.join(save_path, args.model)
+    if not os.path.exists(model_file):
+        logger.error("No such file: %s" % model_file)
+        return
+
+    output_dir = os.path.expanduser(args.output)
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+
+    restore_and_evaluate(save_path, model_file, output_dir)
 
 
 def parse_args():
@@ -142,19 +180,19 @@ def parse_args():
     Parse the command line options for this file
     :return: An argparse object containing parsed arguments
     """
-
-    parser = argparse.ArgumentParser(description="Train the tumor segmentation model",
+    parser = argparse.ArgumentParser(description="Evaluate the tumor segmentation model",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    info_options = parser.add_argument_group("Info")
-    info_options.add_argument("--config", required=True, type=str, help="Configuration file")
-    info_options.add_argument("-params", "--params", type=str, help="Hyperparameters json file")
-
     input_options = parser.add_argument_group("Input")
-    input_options.add_argument('--brats', help="BraTS root data set directory")
+    input_options.add_argument("--save-path", required=True, help="Tensorflow save path")
+    input_options.add_argument("--model", required=True, help="File to save trained model in")
 
     output_options = parser.add_argument_group("Output")
-    output_options.add_argument("--model-file", help="File to save trained model in")
+    output_options.add_argument("-o", "--output", required=True, help="Output directory to store plots")
+
+    info_options = parser.add_argument_group("Info")
+    info_options.add_argument("--config", required=False, type=str, help="Configuration file")
+    info_options.add_argument("-params", "--params", type=str, help="Hyperparameters json file")
 
     logging_options = parser.add_argument_group("Logging")
     logging_options.add_argument('--log', dest="log_level", default="DEBUG", help="Logging level")
@@ -171,17 +209,9 @@ def parse_args():
         raise ValueError('Invalid log level: %s' % args.log_level)
 
     log_formatter = logging.Formatter('[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
-
-    # Log to file if not on google cloud
-    if not args.google_cloud:
-        file_handler = logging.FileHandler(args.log_file)
-        file_handler.setFormatter(log_formatter)
-        logger.addHandler(file_handler)
-
     logger.setLevel(log_level)
 
     return args
-
 
 
 if __name__ == "__main__":

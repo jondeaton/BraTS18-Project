@@ -230,8 +230,6 @@ def train(train_dataset, test_dataset):
         test_cost = tf.summary.scalar('test_cost', cost)
         merged_summary_test = tf.summary.merge([test_dice, test_cost, test_dice_histogram])
 
-        test_dice_average = tf.summary.scalar('test_dice_average', tf.reduce_mean(dice))
-
         writer = tf.summary.FileWriter(logdir=tensorboard_dir)
         writer.add_graph(sess.graph)  # Add the pretty graph viz
 
@@ -243,7 +241,7 @@ def train(train_dataset, test_dataset):
         saver.save(sess, config.model_file, global_step=global_step)
 
         # frequency (number of batches) after which we display test error
-        tb_freq = np.round(config.tensorboard_freq/params.mini_batch_size)
+        tb_freq = 3 #np.round(config.tensorboard_freq/params.mini_batch_size)
         
         # Training epochs
         for epoch in range(params.epochs):
@@ -264,19 +262,29 @@ def train(train_dataset, test_dataset):
                     batch += 1
 
                     if batch % tb_freq == 0:
-                        # Generate stats for test dataset
-                        logger.info("logging test output to tensorboard")
+                        
+                        counter = 0
+                        
+                        while True:
+                            
+                            if counter >= 20:
+                                break
 
-                        test_handle = sess.run(test_iterator.string_handle())
-                        sess.run(test_iterator.initializer)
+                            # Generate stats for test dataset
+                            logger.info("logging test output to tensorboard")
 
-                        test_summary, test_avg = sess.run([merged_summary_test, test_dice_average],
-                                            feed_dict={is_training: False,
-                                                dataset_handle: test_handle})
+                            test_handle = sess.run(test_iterator.string_handle())
+                            sess.run(test_iterator.initializer)
 
-                        logger.info(" test_dice_average: %f" % (test_avg))
+                            test_summary = sess.run([merged_summary_test],
+                                                feed_dict={is_training: False,
+                                                    dataset_handle: test_handle})
 
-                        writer.add_summary(test_summary, global_step=sess.run(global_step))
+                            logger.info(" test_dice: %f" % (dice))
+
+                            writer.add_summary(test_summary, global_step=sess.run(global_step))
+
+                            counter +=1
             
                 except tf.errors.OutOfRangeError:
                     logger.info("End of epoch %d" % epoch)

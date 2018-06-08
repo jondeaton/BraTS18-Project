@@ -241,7 +241,7 @@ def train(train_dataset, test_dataset):
         saver.save(sess, config.model_file, global_step=global_step)
 
         # frequency (number of batches) after which we display test error
-        tb_freq = np.round(config.tensorboard_freq/params.mini_batch_size)
+        tb_freq = 2 #np.round(config.tensorboard_freq/params.mini_batch_size)
         
         # Training epochs
         for epoch in range(params.epochs):

@@ -24,7 +24,7 @@ Table 1: Mean and standard deviation of dice coefficients for brain tumor exampl
 |---------------|-----------------|----------------|---------------------|
 | Concatenation | 0.907 +/- 0.047 | 0.87 +/- 0.072 | 0.89 +/- 0.07       |
 | Summation     | 0.89 +/- 0.05   | 0.85 +/- 0.09  | 0.87 +/- 0.08       |
-| No-skip       | 0.85 +/-        | 0.81 +/- 0.12  | 0.77 +/- 0.25       |
+| No-skip       | 0.85 +/- 0.13   | 0.81 +/- 0.12  | 0.77 +/- 0.25       |
 
 
 Table 2: Minimum and maximum dice coefficients for brain tumor example from the training, test, and validation sets, respectively.
